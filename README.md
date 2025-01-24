@@ -1,50 +1,33 @@
-# React + TypeScript + Vite
+# DoodleSphere
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time, collaborative whiteboard app built with Vite, TSX, and TypeScript. This project allows multiple users to draw, share ideas, and collaborate on a virtual whiteboard in real-time.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Real-time Collaboration**: Multiple users can draw and interact with the whiteboard simultaneously.
+- **Drawing Tools**: Supports pen, eraser, and color selection for drawing.
+- **Undo/Redo**: Ability to undo and redo actions.
+- **Save/Export**: Save and export the current whiteboard as an image.
+- **User-friendly Interface**: Simple and clean UI for intuitive use.
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+- **Frontend**: Vite, React, TypeScript, TSX
+- **Real-time Communication**: WebSocket (or any real-time solution like Firebase or Socket.io)
+- **State Management**: React's Context API
+- **Styling**: Tailwind CSS (or any CSS framework of your choice)
 
-- Configure the top-level `parserOptions` property like this:
+## Installation
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+### Prerequisites
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+- Node.js (v16.0 or higher)
+- npm (v7.0 or higher)
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+### Steps
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/noiseless47/doodlesphere.git
+   cd doodlesphere
