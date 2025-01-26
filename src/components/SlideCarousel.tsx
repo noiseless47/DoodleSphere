@@ -1,6 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Rocket, Users, Save } from "lucide-react";
+import { 
+  Rocket, Users, Save, Pencil, Shapes, 
+  Image, MessageCircle, Download, Share2,
+  History, Lock, Palette, Layout, 
+  Layers, Eraser, FileText, Settings 
+} from "lucide-react";
 
 const slides = [
   {
@@ -12,19 +17,112 @@ const slides = [
   {
     icon: Users,
     title: "Real-Time Collaboration",
-    description: "Connect and work together seamlessly",
+    description: "Connect and work together seamlessly with team members",
     background: "bg-green-50"
   },
   {
+    icon: Lock,
+    title: "Secure Rooms",
+    description: "Private and secure spaces for your team collaboration",
+    background: "bg-slate-50"
+  },
+  {
+    icon: Pencil,
+    title: "Advanced Drawing Tools",
+    description: "Multiple pen types, highlighters, and custom brushes",
+    background: "bg-yellow-50"
+  },
+  {
+    icon: Shapes,
+    title: "Rich Shape Library",
+    description: "Over 25 customizable shapes and elements",
+    background: "bg-orange-50"
+  },
+  {
+    icon: Palette,
+    title: "Color Palettes",
+    description: "Choose from preset palettes or create custom colors",
+    background: "bg-rose-50"
+  },
+  {
+    icon: Image,
+    title: "Media Integration",
+    description: "Import images and create media-rich whiteboards",
+    background: "bg-red-50"
+  },
+  {
+    icon: MessageCircle,
+    title: "Built-in Chat",
+    description: "Real-time communication with team members",
+    background: "bg-indigo-50"
+  },
+  {
+    icon: History,
+    title: "Version History",
+    description: "Track changes and restore previous versions",
+    background: "bg-cyan-50"
+  },
+  {
+    icon: Layout,
+    title: "Multiple Boards",
+    description: "Create and manage multiple whiteboards in one room",
+    background: "bg-emerald-50"
+  },
+  {
+    icon: Share2,
+    title: "Easy Sharing",
+    description: "Share your work with a simple link or invite",
+    background: "bg-pink-50"
+  },
+  {
+    icon: Layers,
+    title: "Layer Management",
+    description: "Organize your work with multiple layers",
+    background: "bg-violet-50"
+  },
+  {
+    icon: Eraser,
+    title: "Smart Eraser",
+    description: "Intelligent erasing tools for precise corrections",
+    background: "bg-amber-50"
+  },
+  {
+    icon: Download,
+    title: "Export Options",
+    description: "Download your work in various formats (PNG, JPG, PDF)",
+    background: "bg-teal-50"
+  },
+  {
+    icon: FileText,
+    title: "Templates",
+    description: "Start quickly with pre-made templates",
+    background: "bg-lime-50"
+  },
+  {
+    icon: Settings,
+    title: "Customizable",
+    description: "Personalize your workspace and tools",
+    background: "bg-fuchsia-50"
+  },
+  {
     icon: Save,
-    title: "Preserve Your Work",
-    description: "Save and revisit your creative projects anytime",
+    title: "Auto-Save",
+    description: "Never lose your work with automatic saving",
     background: "bg-purple-50"
   }
 ];
 
 const SlideCarousel = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const SLIDE_DURATION = 5000; // 5 seconds between auto-slides
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      nextSlide();
+    }, SLIDE_DURATION);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
