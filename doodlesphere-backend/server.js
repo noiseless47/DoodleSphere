@@ -13,24 +13,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration
+// CORS and JSON middleware
 app.use(cors());
+app.use(express.json());
 
-// Basic routes
-app.get('/', (req, res) => {
-  res.json({
-    message: 'DoodleSphere Backend API',
-    status: 'running',
-    timestamp: new Date().toISOString()
-  });
+// Health check route - PUT THIS FIRST
+app.get(['/health', '/api/health'], (req, res) => {
+  try {
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({ error: 'Health check failed' });
+  }
 });
 
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV
-  });
+// Root route
+app.get('/', (req, res) => {
+  try {
+    res.status(200).json({
+      message: 'DoodleSphere Backend API',
+      status: 'running',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Root route error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Socket.IO setup
@@ -168,21 +180,27 @@ io.on('connection', (socket) => {
   });
 });
 
-// Error handling
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something broke!' });
+  console.error('Error:', err);
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    message: err.message 
+  });
 });
 
-// 404 handler - must be last
+// 404 handler
 app.use((req, res) => {
+  console.log('404 Not Found:', req.method, req.url);
   res.status(404).json({ 
     error: 'Not Found',
-    path: req.path
+    path: req.url,
+    method: req.method
   });
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+  console.log('Health check available at /health');
 });

@@ -21,4 +21,8 @@ const handler = (req, res) => {
   res.status(405).json({ error: 'Method not allowed' });
 };
 
-module.exports = handler; 
+module.exports = handler;
+
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Test endpoint working' });
+}); 
