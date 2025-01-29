@@ -16,6 +16,15 @@ app.use(cors({
   credentials: true
 }));
 
+// Health check endpoint - move this before socket.io setup
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+});
+
 // Socket.IO setup
 const io = new Server(httpServer, {
   cors: {
@@ -150,11 +159,6 @@ io.on('connection', (socket) => {
       }
     });
   });
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Start server
