@@ -7,15 +7,6 @@ import Login from './components/Login';
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 console.log('Connecting to backend at:', BACKEND_URL);
 
-const socketOptions = {
-  transports: ['websocket', 'polling'],
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
-  autoConnect: true,
-  forceNew: true,
-  timeout: 20000
-};
-
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
@@ -24,66 +15,47 @@ const App: React.FC = () => {
   const [connectionError, setConnectionError] = useState<string>('');
 
   useEffect(() => {
-    let newSocket: Socket | null = null;
-
     const connectToServer = async () => {
       try {
-        console.log('Attempting health check at:', `${BACKEND_URL}/health`);
-        
-        // First check if backend is available
-        const healthCheck = await fetch(`${BACKEND_URL}/health`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        });
+        const baseUrl = BACKEND_URL.replace(/\/$/, ''); // Remove trailing slash if any
+        console.log('Attempting to connect to:', baseUrl);
 
-        if (!healthCheck.ok) {
-          throw new Error(`Health check failed with status: ${healthCheck.status}`);
+        const healthResponse = await fetch(`${baseUrl}/health`);
+        console.log('Health check status:', healthResponse.status);
+        
+        if (!healthResponse.ok) {
+          throw new Error(`Health check failed: ${healthResponse.status}`);
         }
 
-        const healthData = await healthCheck.json();
-        console.log('Health check response:', healthData);
+        const healthData = await healthResponse.json();
+        console.log('Health check data:', healthData);
 
         if (healthData.status === 'ok') {
-          newSocket = io(BACKEND_URL, socketOptions);
+          const newSocket = io(baseUrl, {
+            transports: ['websocket', 'polling'],
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 20000
+          });
 
           newSocket.on('connect', () => {
-            console.log('Socket connected successfully with ID:', newSocket?.id);
-            setConnectionError('');
+            console.log('Socket connected:', newSocket.id);
             setSocket(newSocket);
+            setConnectionError('');
           });
 
           newSocket.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
-            setConnectionError(`Connection error: ${error.message}`);
+            setConnectionError(`Connection failed: ${error.message}`);
           });
-
-          newSocket.on('disconnect', (reason) => {
-            console.log('Socket disconnected:', reason);
-            if (reason === 'io server disconnect') {
-              // Server disconnected, try to reconnect
-              newSocket?.connect();
-            }
-          });
-        } else {
-          throw new Error('Backend health check returned not ok');
         }
       } catch (error) {
-        console.error('Server connection error:', error);
-        setConnectionError(`Unable to connect to server: ${error.message}`);
+        console.error('Connection error:', error);
+        setConnectionError(error instanceof Error ? error.message : 'Failed to connect to server');
       }
     };
 
     connectToServer();
-
-    return () => {
-      if (newSocket) {
-        console.log('Cleaning up socket connection');
-        newSocket.close();
-      }
-    };
   }, []);
 
   const handleJoin = (username: string, roomId: string) => {

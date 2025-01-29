@@ -9,9 +9,5 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
-    routes:
-      - type: http
-        path: /health
+        value: 3000
     healthCheckPath: /health
-    autoDeploy: true

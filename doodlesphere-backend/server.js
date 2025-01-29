@@ -7,53 +7,36 @@ require('dotenv').config();
 const app = express();
 const httpServer = createServer(app);
 
-// Add basic request logging
+// Logging middleware
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
 // CORS configuration
-app.use(cors({
-  origin: '*', // Allow all origins temporarily for testing
-  methods: ['GET', 'POST', 'OPTIONS'],
-  credentials: true
-}));
+app.use(cors());
 
-// Root endpoint
+// Basic routes
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'DoodleSphere Backend API',
-    status: 'running'
+    status: 'running',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV
   });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something broke!' });
-});
-
-// Handle 404
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not Found' });
-});
-
 // Socket.IO setup
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['https://doodlesphere-10rmre238-noiseless47s-projects.vercel.app']
-      : ['http://localhost:5173'],
+    origin: '*',
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -185,8 +168,21 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// Error handling
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
+});
+
+// 404 handler - must be last
+app.use((req, res) => {
+  res.status(404).json({ 
+    error: 'Not Found',
+    path: req.path
+  });
+});
+
+const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
 });
