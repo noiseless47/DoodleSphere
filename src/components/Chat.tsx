@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Socket } from 'socket.io-client';
+import { io as socketIO } from 'socket.io-client';
 import { Send, X, Image, Smile, Paperclip } from 'lucide-react';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
+import { Socket } from 'socket.io-client';
 
 interface ChatProps {
   socket: Socket;
@@ -378,16 +377,18 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
         </div>
         
         {/* Emoji Picker */}
-        {showEmojiPicker && (
-          <div className="absolute bottom-full right-0 mb-2">
-            <Picker
-              data={data}
-              onEmojiSelect={handleEmojiSelect}
-              theme="light"
-              previewPosition="none"
-            />
-          </div>
-        )}
+        {/* Comment out the emoji picker UI temporarily
+          {showEmojiPicker && (
+            <div className="absolute bottom-full right-0 mb-2">
+              <Picker
+                data={data}
+                onEmojiSelect={handleEmojiSelect}
+                theme="light"
+                previewPosition="none"
+              />
+            </div>
+          )}
+        */}
 
         <input
           ref={fileInputRef}

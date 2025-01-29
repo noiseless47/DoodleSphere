@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 import { 
   X, MessageCircle, Square, Circle, Type, Eraser, 
   ChevronDown, Undo2, Redo2, Trash2, MousePointer,
@@ -8,26 +8,12 @@ import {
   Heart, Zap, Moon, Sun, Plus, Hash, CircleDot, Box, Copy
 } from 'lucide-react';
 import Chat from './Chat';
+import type { Tool, DrawData } from '../types/whiteboard';
 
 interface WhiteboardProps {
   socket: Socket;
   roomId: string;
   username: string;
-}
-
-interface DrawData {
-  roomId: string;
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-  color: string;
-  lineWidth: number;
-  tool: string;
-  text?: string;
-  imageData?: string;
-  width?: number;
-  height?: number;
 }
 
 interface Point {
@@ -66,7 +52,12 @@ const penTools = [
   { id: 'highlighter', icon: Highlighter, name: 'Highlighter', width: 20 },
 ] as const;
 
-const shapes = [
+interface Shape {
+  id: Tool;
+  icon: React.FC<any>;
+}
+
+const shapes: Shape[] = [
   { id: 'rectangle', icon: Square },
   { id: 'circle', icon: Circle },
   { id: 'triangle', icon: Triangle },
@@ -94,15 +85,40 @@ const shapes = [
   { id: 'smallSquare', icon: Square },
 ] as const;
 
-const basicTools = [
+interface BasicTool {
+  id: string;
+  icon: React.FC<any>;
+  name: string;
+  isDropdown?: boolean;
+  group?: string;
+  action?: () => void;
+  disabled?: boolean;
+  defaultTool?: string;
+}
+
+const basicTools: BasicTool[] = [
   { id: 'select', icon: MousePointer, name: 'Select' },
-  { id: 'pen', icon: PenTool, name: 'Drawing Tools', isDropdown: true, group: 'pen', defaultTool: 'pen' },
-  { id: 'shapes', icon: Square, name: 'Shapes', isDropdown: true, group: 'shapes', defaultTool: 'rectangle' },
+  { 
+    id: 'pen', 
+    icon: PenTool, 
+    name: 'Drawing Tools', 
+    isDropdown: true, 
+    group: 'pen', 
+    defaultTool: 'pen' 
+  },
+  { 
+    id: 'shapes', 
+    icon: Square, 
+    name: 'Shapes', 
+    isDropdown: true, 
+    group: 'shapes', 
+    defaultTool: 'rectangle' 
+  },
   { id: 'eraser', icon: Eraser, name: 'Eraser' },
   { id: 'text', icon: Type, name: 'Text' },
   { id: 'fill', icon: PaintBucket, name: 'Fill' },
   { id: 'move', icon: Move, name: 'Move' },
-  { id: 'image', icon: Image, name: 'Import Image' },
+  { id: 'image', icon: Image, name: 'Import Image' }
 ] as const;
 
 // Add these line width presets near your other constants
@@ -114,6 +130,9 @@ const lineWidthPresets = [
   { size: 12, label: 'Super Thick' },
 ];
 
+// Add this type near the top of the file
+type ToolType = Tool | 'pen' | 'marker' | 'highlighter' | 'eraser' | 'text' | 'fill' | 'move' | 'image' | 'select';
+
 const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -122,7 +141,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
   const [color, setColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('#ffffff');
   const [lineWidth, setLineWidth] = useState(2);
-  const [selectedTool, setSelectedTool] = useState('pen');
+  const [selectedTool, setSelectedTool] = useState<ToolType>('pen');
   const [showChat, setShowChat] = useState(false);
   const [selectedObject, setSelectedObject] = useState<DrawData | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -840,6 +859,11 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     ]
   ];
 
+  // Add this type guard function
+  const isBasicTool = (tool: any): tool is BasicTool => {
+    return 'id' in tool && 'name' in tool;
+  };
+
   // Then modify the renderToolbar function
   const renderToolbar = () => (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-md shadow-md z-20">
@@ -857,44 +881,46 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
                     if (tool.id === 'image') {
                       e.preventDefault();
                       imageInputRef.current?.click();
-                    } else if (tool.action) {
+                    } else if (isBasicTool(tool) && tool.action) {
                       e.preventDefault();
                       tool.action();
                     } else {
                       e.stopPropagation();
-                      if (!tool.isDropdown) {
-                        setSelectedTool(tool.id);
-                      } else {
-                        if (tool.group === 'pen') {
-                          setShowPenMenu(!showPenMenu);
-                          setShowShapesMenu(false);
-                          setShowColorPalette(false);
-                        } else if (tool.group === 'shapes') {
-                          setShowShapesMenu(!showShapesMenu);
-                          setShowPenMenu(false);
-                          setShowColorPalette(false);
-                        } else if (tool.group === 'color') {
-                          setShowColorPalette(!showColorPalette);
-                          setShowPenMenu(false);
-                          setShowShapesMenu(false);
-                        } else if (tool.group === 'lineWidth') {
-                          setShowLineWidthMenu(!showLineWidthMenu);
-                          setShowPenMenu(false);
-                          setShowShapesMenu(false);
-                          setShowColorPalette(false);
+                      if (isBasicTool(tool)) {
+                        if (!tool.isDropdown) {
+                          setSelectedTool(tool.id as ToolType);
+                        } else {
+                          if (tool.group === 'pen') {
+                            setShowPenMenu(!showPenMenu);
+                            setShowShapesMenu(false);
+                            setShowColorPalette(false);
+                          } else if (tool.group === 'shapes') {
+                            setShowShapesMenu(!showShapesMenu);
+                            setShowPenMenu(false);
+                            setShowColorPalette(false);
+                          } else if (tool.group === 'color') {
+                            setShowColorPalette(!showColorPalette);
+                            setShowPenMenu(false);
+                            setShowShapesMenu(false);
+                          } else if (tool.group === 'lineWidth') {
+                            setShowLineWidthMenu(!showLineWidthMenu);
+                            setShowPenMenu(false);
+                            setShowShapesMenu(false);
+                            setShowColorPalette(false);
+                          }
                         }
                       }
                     }
                   }}
                   className={`p-2 rounded-md transition-colors flex items-center justify-center min-w-[40px] ${
-                    tool.disabled ? 'opacity-50 cursor-not-allowed' : 
-                    (!tool.isDropdown && selectedTool === tool.id) || 
+                    isBasicTool(tool) && tool.disabled ? 'opacity-50 cursor-not-allowed' : 
+                    (isBasicTool(tool) && !tool.isDropdown && selectedTool === tool.id) || 
                     (tool.id === 'pen' && ['pen', 'marker', 'highlighter'].includes(selectedTool)) ||
-                    (tool.id === 'shapes' && shapes.map(s => s.id).includes(selectedTool))
+                    (tool.id === 'shapes' && shapes.some(s => s.id === selectedTool))
                       ? 'bg-blue-500 text-white' 
                       : 'hover:bg-gray-100'
                   }`}
-                  disabled={tool.disabled}
+                  disabled={isBasicTool(tool) && tool.disabled}
                 >
                   {tool.id === 'pen' && ['pen', 'marker', 'highlighter'].includes(selectedTool) ? (
                     <div className="w-5 h-5">
@@ -903,7 +929,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
                         { size: 20 }
                       )}
                     </div>
-                  ) : tool.id === 'shapes' && shapes.map(s => s.id).includes(selectedTool) ? (
+                  ) : tool.id === 'shapes' && shapes.some(s => s.id === selectedTool) ? (
                     <div className="w-5 h-5">
                       {React.createElement(
                         shapes.find(s => s.id === selectedTool)?.icon || Square,
@@ -913,7 +939,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
                   ) : (
                     <tool.icon size={20} />
                   )}
-                  {tool.isDropdown && <ChevronDown size={16} className="ml-1" />}
+                  {isBasicTool(tool) && tool.isDropdown && <ChevronDown size={16} className="ml-1" />}
                 </button>
 
                 {/* Pen Tools Dropdown */}
