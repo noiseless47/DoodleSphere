@@ -8,11 +8,12 @@ const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 console.log('Connecting to backend at:', BACKEND_URL);
 
 const socketOptions = {
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   reconnectionAttempts: 5,
   reconnectionDelay: 1000,
   autoConnect: true,
-  forceNew: true
+  forceNew: true,
+  timeout: 20000
 };
 
 const App: React.FC = () => {
@@ -23,49 +24,65 @@ const App: React.FC = () => {
   const [connectionError, setConnectionError] = useState<string>('');
 
   useEffect(() => {
-    console.log('Attempting to connect to:', BACKEND_URL);
-    
-    // First verify the backend is running
-    fetch(`${BACKEND_URL}/health`)
-      .then(res => res.json())
-      .then(data => {
-        console.log('Backend health check:', data);
-        if (data.status === 'ok') {
-          initializeSocket();
+    let newSocket: Socket | null = null;
+
+    const connectToServer = async () => {
+      try {
+        console.log('Attempting health check at:', `${BACKEND_URL}/health`);
+        
+        // First check if backend is available
+        const healthCheck = await fetch(`${BACKEND_URL}/health`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!healthCheck.ok) {
+          throw new Error(`Health check failed with status: ${healthCheck.status}`);
         }
-      })
-      .catch(error => {
-        console.error('Backend health check failed:', error);
-        setConnectionError('Failed to connect to server: Backend not responding');
-      });
 
-    const initializeSocket = () => {
-      const newSocket = io(BACKEND_URL, socketOptions);
-      
-      newSocket.on('connect', () => {
-        console.log('Socket connected successfully');
-        setConnectionError('');
-      });
+        const healthData = await healthCheck.json();
+        console.log('Health check response:', healthData);
 
-      newSocket.on('connect_error', (error) => {
-        console.error('Socket connection error details:', error);
-        setConnectionError(`Failed to connect to server: ${error.message}`);
-      });
+        if (healthData.status === 'ok') {
+          newSocket = io(BACKEND_URL, socketOptions);
 
-      newSocket.on('error', (error) => {
-        console.error('Socket general error:', error);
-      });
+          newSocket.on('connect', () => {
+            console.log('Socket connected successfully with ID:', newSocket?.id);
+            setConnectionError('');
+            setSocket(newSocket);
+          });
 
-      newSocket.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
-      });
+          newSocket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            setConnectionError(`Connection error: ${error.message}`);
+          });
 
-      setSocket(newSocket);
+          newSocket.on('disconnect', (reason) => {
+            console.log('Socket disconnected:', reason);
+            if (reason === 'io server disconnect') {
+              // Server disconnected, try to reconnect
+              newSocket?.connect();
+            }
+          });
+        } else {
+          throw new Error('Backend health check returned not ok');
+        }
+      } catch (error) {
+        console.error('Server connection error:', error);
+        setConnectionError(`Unable to connect to server: ${error.message}`);
+      }
+    };
 
-      return () => {
+    connectToServer();
+
+    return () => {
+      if (newSocket) {
         console.log('Cleaning up socket connection');
         newSocket.close();
-      };
+      }
     };
   }, []);
 
@@ -79,11 +96,20 @@ const App: React.FC = () => {
   if (!socket) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Connecting to server...</p>
+          <p className="text-gray-600 mb-2">Connecting to server...</p>
           {connectionError && (
-            <p className="text-red-500 mt-2">{connectionError}</p>
+            <div className="text-red-500 mt-4 p-4 bg-red-50 rounded">
+              <p className="font-semibold">Connection Error:</p>
+              <p>{connectionError}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Retry Connection
+              </button>
+            </div>
           )}
         </div>
       </div>

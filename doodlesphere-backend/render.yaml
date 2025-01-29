@@ -10,5 +10,8 @@ services:
         value: production
       - key: PORT
         value: 10000
+    routes:
+      - type: http
+        path: /health
     healthCheckPath: /health
     autoDeploy: true

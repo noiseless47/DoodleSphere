@@ -7,16 +7,28 @@ require('dotenv').config();
 const app = express();
 const httpServer = createServer(app);
 
+// Add basic request logging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  next();
+});
+
 // CORS configuration
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://doodlesphere.vercel.app', 'https://doodlesphere-backend.onrender.com']
-    : ['http://localhost:5173'],
+  origin: '*', // Allow all origins temporarily for testing
   methods: ['GET', 'POST', 'OPTIONS'],
   credentials: true
 }));
 
-// Health check endpoint - move this before socket.io setup
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'DoodleSphere Backend API',
+    status: 'running'
+  });
+});
+
+// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
@@ -25,15 +37,27 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
+});
+
+// Handle 404
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' });
+});
+
 // Socket.IO setup
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? ['https://doodlesphere.vercel.app', 'https://doodlesphere-backend.onrender.com']
+      ? ['https://doodlesphere-10rmre238-noiseless47s-projects.vercel.app']
       : ['http://localhost:5173'],
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  transports: ['websocket', 'polling']
 });
 
 // Store rooms data
