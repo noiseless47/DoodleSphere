@@ -7,7 +7,15 @@ const app = express();
 const httpServer = createServer(app);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://doodlesphere.vercel.app',
+    'https://doodlesphere-10rmre238-noiseless47s-projects.vercel.app'
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Request logging
@@ -36,8 +44,13 @@ app.get('/', (req, res) => {
 // Socket.IO setup
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: [
+      'http://localhost:5173',
+      'https://doodlesphere.vercel.app',
+      'https://doodlesphere-10rmre238-noiseless47s-projects.vercel.app'
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
