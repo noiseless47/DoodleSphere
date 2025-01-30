@@ -1,24 +1,51 @@
-const handler = (req, res) => {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
 
-  if (req.method === 'GET') {
-    res.status(200).json({
-      name: 'DoodleSphere Backend API',
-      status: 'running',
-      endpoints: {
-        health: '/api/health',
-        test: '/api/test',
-        socket: '/socket.io'
-      },
-      timestamp: new Date().toISOString()
-    });
-    return;
+const app = express();
+const httpServer = createServer(app);
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    time: new Date().toISOString()
+  });
+});
+
+// Socket.IO setup
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
+// Store rooms data
+const rooms = new Map();
+
+// Socket event handlers
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  
+  // Your existing socket handlers...
+});
+
+// Export the handler for serverless
+module.exports = (req, res) => {
+  if (!res.socket.server.io) {
+    console.log('Setting up Socket.IO');
+    res.socket.server.io = io;
   }
 
-  res.status(405).json({ error: 'Method not allowed' });
-};
+  if (req.url === '/health') {
+    return app._router.handle(req, res);
+  }
 
-module.exports = handler; 
+  res.socket.server.io.handler(req, res);
+}; 
