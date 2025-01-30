@@ -14,6 +14,7 @@ interface WhiteboardProps {
   socket: Socket;
   roomId: string;
   username: string;
+  defaultColor: string;
 }
 
 interface Point {
@@ -133,12 +134,12 @@ const lineWidthPresets = [
 // Add this type near the top of the file
 type ToolType = Tool | 'pen' | 'marker' | 'highlighter' | 'eraser' | 'text' | 'fill' | 'move' | 'image' | 'select';
 
-const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => {
+const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defaultColor }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState('#000000');
+  const [color, setColor] = useState(defaultColor);
   const [fillColor, setFillColor] = useState('#ffffff');
   const [lineWidth, setLineWidth] = useState(2);
   const [selectedTool, setSelectedTool] = useState<ToolType>('pen');
