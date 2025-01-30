@@ -39,7 +39,7 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "https://doodlesphere-backend.onrender.com"
+    "VITE_API_URL": "https://doodlesphere.onrender.com"
   }
 }
   
