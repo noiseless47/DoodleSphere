@@ -151,6 +151,29 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Add this chat message handler
+  socket.on('chat-message', (data) => {
+    console.log('Chat message received:', data); // Add logging
+    
+    const room = rooms.get(data.roomId);
+    if (room) {
+      const messageData = {
+        ...data,
+        timestamp: new Date().toLocaleTimeString(),
+        userId: socket.id
+      };
+
+      // Broadcast to everyone in the room (including sender)
+      io.to(data.roomId).emit('chat-message', messageData);
+    }
+  });
+
+  // Add typing event handler
+  socket.on('typing', ({ roomId, username, isTyping }) => {
+    console.log('Typing event:', username, isTyping);
+    socket.broadcast.to(roomId).emit('user-typing', { username, isTyping });
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
     rooms.forEach((room, roomId) => {
