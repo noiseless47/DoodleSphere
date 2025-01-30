@@ -61,11 +61,11 @@ const rooms = new Map();
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
-  // Add username to socket when user joins
-  socket.on('join-room', ({ roomId, username }) => {  // Update to receive username
+  // Handle join room with proper room data
+  socket.on('join-room', ({ roomId, username }) => {
     console.log(`User ${username} joining room ${roomId}`);
     socket.join(roomId);
-    socket.username = username;  // Store username in socket
+    socket.username = username;
     
     if (!rooms.has(roomId)) {
       rooms.set(roomId, {
@@ -73,22 +73,22 @@ io.on('connection', (socket) => {
         drawings: [],
         history: [],
         redoStack: [],
-        messages: []  // Add messages array
+        messages: []
       });
     }
     
     const room = rooms.get(roomId);
     room.users.set(socket.id, { 
       id: socket.id,
-      username: username  // Use provided username
+      username: username
     });
     
-    // Send existing state to new user
+    // Send existing state immediately after joining
     socket.emit('initial-state', {
       drawings: room.drawings,
       history: room.history,
       redoStack: room.redoStack,
-      messages: room.messages  // Send existing messages
+      messages: room.messages
     });
   });
 
@@ -125,15 +125,17 @@ io.on('connection', (socket) => {
 
   // Handle drawing events
   socket.on('draw', (data) => {
-    console.log('Draw event received:', data.tool); // Add logging
+    console.log('Draw event received:', { roomId: data.roomId, tool: data.tool });
     const room = rooms.get(data.roomId);
     if (room) {
       // Add to room history
       room.drawings.push(data);
       room.history.push({ type: 'draw', data });
       
-      // Broadcast to all other users in the room
-      socket.broadcast.to(data.roomId).emit('draw', data);
+      // Important: Broadcast to ALL clients in the room, including sender
+      io.to(data.roomId).emit('draw', data);
+    } else {
+      console.log('Room not found for drawing:', data.roomId);
     }
   });
 
