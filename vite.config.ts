@@ -6,8 +6,16 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      external: ['emoji-mart'],
-    },
+      output: {
+        format: 'es',
+        entryFileNames: '[name].js',
+        chunkFileNames: '[name]-[hash].js',
+        assetFileNames: '[name].[ext]'
+      }
+    }
+  },
+  server: {
+    cors: true
   },
   resolve: {
     alias: {
