@@ -10,10 +10,25 @@ const httpServer = createServer(app);
 app.use(cors());
 app.use(express.json());
 
+// Request logging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
+    time: new Date().toISOString()
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    name: 'DoodleSphere Backend',
+    status: 'running',
     time: new Date().toISOString()
   });
 });
@@ -33,19 +48,18 @@ const rooms = new Map();
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
-  // Your existing socket handlers...
+  socket.on('join-room', (roomId) => {
+    // ... your existing socket handlers
+  });
+  
+  // ... rest of your socket handlers
 });
 
-// Export the handler for serverless
-module.exports = (req, res) => {
-  if (!res.socket.server.io) {
-    console.log('Setting up Socket.IO');
-    res.socket.server.io = io;
-  }
+// Start server
+const PORT = process.env.PORT || 10000;
+httpServer.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
-  if (req.url === '/health') {
-    return app._router.handle(req, res);
-  }
-
-  res.socket.server.io.handler(req, res);
-}; 
+// Export for serverless
+module.exports = app; 

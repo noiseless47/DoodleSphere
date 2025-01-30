@@ -4,7 +4,8 @@
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",
-    "dev": "nodemon api/index.js"
+    "dev": "nodemon api/index.js",
+    "build": "echo 'No build step needed'"
   },
   "keywords": [],
   "author": "",
