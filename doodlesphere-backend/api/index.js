@@ -100,15 +100,18 @@ io.on('connection', (socket) => {
       const messageData = {
         ...data,
         userId: socket.id,
-        username: socket.username,
+        senderId: socket.id,
         timestamp: new Date().toISOString()
       };
       
+      console.log('Broadcasting message:', messageData);
       // Store message in room history
       room.messages.push(messageData);
       
       // Broadcast to all users in the room (including sender)
       io.to(data.roomId).emit('chat-message', messageData);
+    } else {
+      console.log('Room not found:', data.roomId);
     }
   });
 
