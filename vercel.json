@@ -17,7 +17,7 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "https://doodlesphere-backend.vercel.app"
+    "VITE_API_URL": "https://doodlesphere-backend.onrender.com"
   }
 }
   

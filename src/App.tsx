@@ -4,8 +4,8 @@ import Whiteboard from './components/Whiteboard';
 import Chat from './components/Chat';
 import Login from './components/Login';
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-console.log('Connecting to backend at:', BACKEND_URL);
+const BACKEND_URL = import.meta.env.VITE_API_URL;
+console.log('Backend URL:', BACKEND_URL); // Add this for debugging
 
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -13,14 +13,15 @@ const App: React.FC = () => {
   const [roomId, setRoomId] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connectionError, setConnectionError] = useState<string>('');
+  const [isConnecting, setIsConnecting] = useState(true);
 
   useEffect(() => {
     const connectToServer = async () => {
       try {
-        const baseUrl = BACKEND_URL.replace(/\/$/, ''); // Remove trailing slash if any
-        console.log('Attempting to connect to:', baseUrl);
-
-        const healthResponse = await fetch(`${baseUrl}/health`);
+        console.log('Attempting to connect to backend...');
+        
+        // First check if backend is available
+        const healthResponse = await fetch(`${BACKEND_URL}/health`);
         console.log('Health check status:', healthResponse.status);
         
         if (!healthResponse.ok) {
@@ -28,10 +29,11 @@ const App: React.FC = () => {
         }
 
         const healthData = await healthResponse.json();
-        console.log('Health check data:', healthData);
+        console.log('Health check response:', healthData);
 
         if (healthData.status === 'ok') {
-          const newSocket = io(baseUrl, {
+          console.log('Creating socket connection...');
+          const newSocket = io(BACKEND_URL, {
             transports: ['websocket', 'polling'],
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
@@ -39,19 +41,29 @@ const App: React.FC = () => {
           });
 
           newSocket.on('connect', () => {
-            console.log('Socket connected:', newSocket.id);
+            console.log('Socket connected successfully:', newSocket.id);
             setSocket(newSocket);
             setConnectionError('');
+            setIsConnecting(false);
           });
 
           newSocket.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
             setConnectionError(`Connection failed: ${error.message}`);
+            setIsConnecting(false);
+          });
+
+          newSocket.on('disconnect', (reason) => {
+            console.log('Socket disconnected:', reason);
+            if (reason === 'io server disconnect') {
+              newSocket.connect();
+            }
           });
         }
       } catch (error) {
         console.error('Connection error:', error);
         setConnectionError(error instanceof Error ? error.message : 'Failed to connect to server');
+        setIsConnecting(false);
       }
     };
 
@@ -65,19 +77,22 @@ const App: React.FC = () => {
     setIsLoggedIn(true);
   };
 
-  if (!socket) {
+  if (isConnecting || !socket) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 mb-2">Connecting to server...</p>
+          <p className="text-gray-600 mb-2">
+            {isConnecting ? 'Connecting to server...' : 'Waiting for connection...'}
+          </p>
           {connectionError && (
             <div className="text-red-500 mt-4 p-4 bg-red-50 rounded">
               <p className="font-semibold">Connection Error:</p>
-              <p>{connectionError}</p>
+              <p className="mb-2">{connectionError}</p>
+              <p className="text-sm text-gray-600 mb-4">Backend URL: {BACKEND_URL}</p>
               <button 
                 onClick={() => window.location.reload()}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 Retry Connection
               </button>
