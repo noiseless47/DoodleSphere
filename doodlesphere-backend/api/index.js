@@ -77,7 +77,7 @@ io.on('connection', (socket) => {
 });
 
 // Start server
-const PORT = parseInt(process.env.PORT || '3000');
+const PORT = parseInt(process.env.PORT || '10000');
 console.log('Starting server on port:', PORT);
 
 httpServer.listen(PORT, '0.0.0.0', () => {
