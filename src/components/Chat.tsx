@@ -154,62 +154,17 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
     setShowEmojiPicker(false);
   };
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (selectedFile && !isUploading) {
-      try {
-        setIsUploading(true);
-        
-        const readFileAsDataURL = (file: File): Promise<string> => {
-          return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(file);
-          });
-        };
-
-        const base64Data = await readFileAsDataURL(selectedFile);
-        const isImage = selectedFile.type.startsWith('image/');
-        
-        const messageData = {
-          roomId,
-          message: selectedFile.name,
-          username,
-          userId: socket.id,
-          senderId: socket.id,
-          timestamp: new Date().toLocaleTimeString(),
-          type: isImage ? 'image' : 'file',
-          fileUrl: base64Data,
-          fileName: selectedFile.name,
-          fileData: base64Data
-        };
-
-        socket.emit('chat-message', messageData);
-
-        // Clear file states
-        setSelectedFile(null);
-        setFilePreview('');
-        setNewMessage('');
-      } catch (error) {
-        console.error('Error uploading file:', error);
-        alert('Failed to send file. Please try again.');
-      } finally {
-        setIsUploading(false);
-      }
-    } else if (newMessage.trim() && !isUploading) {
-      const messageData = {
+    
+    if (newMessage.trim()) {
+      console.log('Sending message:', newMessage);
+      socket.emit('chat-message', {
         roomId,
         message: newMessage.trim(),
         username,
-        userId: socket.id,
-        senderId: socket.id,
-        timestamp: new Date().toLocaleTimeString(),
         type: 'text'
-      };
-
-      socket.emit('chat-message', messageData);
+      });
       setNewMessage('');
     }
   };
@@ -307,7 +262,7 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={sendMessage} className="p-4 border-t bg-white rounded-b-lg relative">
+      <form onSubmit={handleSendMessage} className="p-4 border-t bg-white rounded-b-lg relative">
         <div className="flex flex-col gap-2">
           {selectedFile && (
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md">
