@@ -4,7 +4,7 @@ services:
     env: node
     rootDir: doodlesphere-backend
     buildCommand: npm install
-    startCommand: node api/index.js
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production

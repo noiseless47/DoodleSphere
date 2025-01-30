@@ -49,17 +49,40 @@ io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
   socket.on('join-room', (roomId) => {
-    // ... your existing socket handlers
+    socket.join(roomId);
+    
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, {
+        users: new Map(),
+        drawings: [],
+        history: [],
+        redoStack: []
+      });
+    }
+    
+    const room = rooms.get(roomId);
+    room.users.set(socket.id, { 
+      id: socket.id,
+      username: socket.username
+    });
+    
+    socket.emit('initial-state', {
+      drawings: room.drawings,
+      history: room.history,
+      redoStack: room.redoStack
+    });
   });
   
   // ... rest of your socket handlers
 });
 
 // Start server
-const PORT = process.env.PORT || 10000;
-httpServer.listen(PORT, () => {
+const PORT = parseInt(process.env.PORT || '10000');
+console.log('Starting server on port:', PORT);
+
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
 
 // Export for serverless
-module.exports = app; 
+module.exports = httpServer; 
