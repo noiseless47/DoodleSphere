@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import Chat from './Chat';
 import type { Tool, DrawData } from '../types/whiteboard';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface WhiteboardProps {
   socket: Socket;
@@ -135,12 +134,11 @@ const lineWidthPresets = [
 type ToolType = Tool | 'pen' | 'marker' | 'highlighter' | 'eraser' | 'text' | 'fill' | 'move' | 'image' | 'select';
 
 const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => {
-  const { theme, toggleTheme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState(theme === 'dark' ? '#FFFFFF' : '#000000');
+  const [color, setColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('#ffffff');
   const [lineWidth, setLineWidth] = useState(2);
   const [selectedTool, setSelectedTool] = useState<ToolType>('pen');
@@ -448,11 +446,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
       socket.off('clear-board');
     };
   }, [socket]);
-
-  useEffect(() => {
-    // Update default color when theme changes
-    setColor(theme === 'dark' ? '#FFFFFF' : '#000000');
-  }, [theme]);
 
   const handleInitialState = (drawings: DrawData[]) => {
     const ctx = canvasRef.current?.getContext('2d');
@@ -1398,37 +1391,33 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     }
   };
 
-  // Add this near your toolbar buttons
-  const renderThemeToggle = () => (
-    <button
-      onClick={toggleTheme}
-      className={`p-2 rounded-full ${
-        theme === 'dark' 
-          ? 'bg-zinc-700 hover:bg-zinc-600' 
-          : 'bg-gray-200 hover:bg-gray-300'
-      }`}
-      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-    >
-      {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-    </button>
-  );
-
   return (
-    <div className={`relative h-full ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'}`}>
-      <div className="absolute top-4 left-4 flex items-center space-x-2 z-10">
-        {/* Existing toolbar buttons */}
-        {renderThemeToggle()}
-      </div>
-
+    <div 
+      ref={containerRef} 
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: '#f3f4f6'
+      }}
+    >
       <canvas
         ref={canvasRef}
-        className={`w-full h-full ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'}`}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'white'
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseOut={handleMouseUp}
       />
-
       <canvas
         ref={previewCanvasRef}
         style={{
