@@ -77,11 +77,12 @@ io.on('connection', (socket) => {
 });
 
 // Start server
-const PORT = parseInt(process.env.PORT || '10000');
+const PORT = parseInt(process.env.PORT || '3000');
 console.log('Starting server on port:', PORT);
 
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running at http://localhost:${PORT}`);
+  console.log('Environment:', process.env.NODE_ENV);
 });
 
 // Export for serverless
