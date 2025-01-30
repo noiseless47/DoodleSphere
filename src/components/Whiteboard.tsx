@@ -5,10 +5,12 @@ import {
   ChevronDown, Undo2, Redo2, Trash2, MousePointer,
   Triangle, Star, Hexagon, PenTool, Highlighter, Edit3,
   Move, PaintBucket, Download, Image, ArrowRight, Minus,
-  Heart, Zap, Moon, Sun, Plus, Hash, CircleDot, Box, Copy
+  Heart, Zap, Moon, Sun, Plus, Hash, CircleDot, Box, Copy, CheckCircle2, Settings
 } from 'lucide-react';
 import Chat from './Chat';
 import type { Tool, DrawData } from '../types/whiteboard';
+import Toggle from './Toggle';
+import Modal from './Modal';
 
 interface WhiteboardProps {
   socket: Socket;
@@ -83,60 +85,43 @@ const shapes: Shape[] = [
   { id: 'trapezoid', icon: Square },
   { id: 'ellipse', icon: Circle },
   { id: 'smallSquare', icon: Square },
-] as const;
-
-interface BasicTool {
-  id: string;
-  icon: React.FC<any>;
-  name: string;
-  isDropdown?: boolean;
-  group?: string;
-  action?: () => void;
-  disabled?: boolean;
-  defaultTool?: string;
-}
-
-const basicTools: BasicTool[] = [
-  { id: 'select', icon: MousePointer, name: 'Select' },
-  { 
-    id: 'pen', 
-    icon: PenTool, 
-    name: 'Drawing Tools', 
-    isDropdown: true, 
-    group: 'pen', 
-    defaultTool: 'pen' 
-  },
-  { 
-    id: 'shapes', 
-    icon: Square, 
-    name: 'Shapes', 
-    isDropdown: true, 
-    group: 'shapes', 
-    defaultTool: 'rectangle' 
-  },
-  { id: 'eraser', icon: Eraser, name: 'Eraser' },
-  { id: 'text', icon: Type, name: 'Text' },
-  { id: 'fill', icon: PaintBucket, name: 'Fill' },
-  { id: 'move', icon: Move, name: 'Move' },
-  { id: 'image', icon: Image, name: 'Import Image' }
-] as const;
-
-// Add these line width presets near your other constants
-const lineWidthPresets = [
-  { size: 2, label: 'Fine' },
-  { size: 4, label: 'Medium' },
-  { size: 6, label: 'Thick' },
-  { size: 8, label: 'Extra Thick' },
-  { size: 12, label: 'Super Thick' },
 ];
 
-// Add this type near the top of the file
+// Keep types and interfaces at the top level
+type IconComponent = React.ComponentType<any>;
+type CustomIconFunction = () => React.ReactElement;
+
+type BasicTool = {
+  id: string;
+  icon: IconComponent | CustomIconFunction;
+  name: string;
+  action?: () => void;
+  disabled?: boolean;
+  isDropdown?: boolean;
+  group?: string;
+  defaultTool?: string;
+};
+
+type SeparatorTool = {
+  id: string;
+  isSeparator: true;
+};
+
+type ToolOrSeparator = BasicTool | SeparatorTool;
 type ToolType = Tool | 'pen' | 'marker' | 'highlighter' | 'eraser' | 'text' | 'fill' | 'move' | 'image' | 'select';
 
+interface Settings {
+  showGrid: boolean;
+  snapToGrid: boolean;
+  darkMode: boolean;
+  autoSave: boolean;
+  gridSize: number;
+  gridColor: string;
+  backgroundColor: string;
+}
+
 const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // State definitions first
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('#ffffff');
@@ -166,6 +151,23 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
   const dragStartY = useRef<number>(0);
   
   const imageInputRef = useRef<HTMLInputElement>(null);
+  
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<Settings>({
+    showGrid: false,
+    snapToGrid: false,
+    darkMode: false,
+    autoSave: true,
+    gridSize: 20,
+    gridColor: '#e5e7eb',
+    backgroundColor: '#ffffff'
+  });
+  
+  const [showResetModal, setShowResetModal] = useState(false);
+  
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const downloadWhiteboard = () => {
     if (canvasRef.current) {
@@ -818,38 +820,139 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     ctx.stroke();
   };
 
-  // First, let's group our tools
-  const toolGroups = [
-    // Drawing tools group
+  // Helper functions
+  const renderToolIcon = (tool: ToolOrSeparator) => {
+    if ('isSeparator' in tool) return null;
+    if (typeof tool.icon === 'function') {
+      return React.createElement(tool.icon, { size: 20 });
+    }
+    return React.createElement(tool.icon, { size: 20 });
+  };
+
+  const handleToolClick = (tool: BasicTool, isArrowClick = false) => {
+    if (tool.action) {
+      tool.action();
+      return;
+    }
+
+    if (tool.id === 'color') {
+      setShowColorPalette(!showColorPalette);
+      setShowPenMenu(false);
+      setShowShapesMenu(false);
+      setShowLineWidthMenu(false);
+    } else if (tool.id === 'lineWidth') {
+      setShowLineWidthMenu(!showLineWidthMenu);
+      setShowPenMenu(false);
+      setShowShapesMenu(false);
+      setShowColorPalette(false);
+    } else if (tool.isDropdown && isArrowClick) {
+      switch (tool.group) {
+        case 'pen':
+          setShowPenMenu(!showPenMenu);
+          setShowShapesMenu(false);
+          setShowColorPalette(false);
+          setShowLineWidthMenu(false);
+          break;
+        case 'shapes':
+          setShowShapesMenu(!showShapesMenu);
+          setShowPenMenu(false);
+          setShowColorPalette(false);
+          setShowLineWidthMenu(false);
+          break;
+      }
+    } else if (tool.isDropdown && tool.defaultTool) {
+      setSelectedTool(tool.defaultTool as ToolType);
+    } else {
+      setSelectedTool(tool.id as ToolType);
+    }
+  };
+
+  // Tool definitions
+  const basicTools: BasicTool[] = [
+    { id: 'select', icon: MousePointer, name: 'Select' },
+    { 
+      id: 'pen', 
+      icon: PenTool, 
+      name: 'Drawing Tools', 
+      isDropdown: true, 
+      group: 'pen', 
+      defaultTool: 'pen' 
+    },
+    { 
+      id: 'shapes', 
+      icon: Square, 
+      name: 'Shapes', 
+      isDropdown: true, 
+      group: 'shapes', 
+      defaultTool: 'rectangle' 
+    },
+    { id: 'eraser', icon: Eraser, name: 'Eraser' },
+    { id: 'text', icon: Type, name: 'Text' },
+    { id: 'fill', icon: PaintBucket, name: 'Fill' },
+    { id: 'move', icon: Move, name: 'Move' },
+    { id: 'image', icon: Image, name: 'Import Image' }
+  ];
+
+  const toolGroups: ToolOrSeparator[][] = [
     [
-      basicTools[0], // select
-      basicTools[1], // pen
-      basicTools[2], // shapes
+      basicTools[0],
+      {
+        id: 'pen',
+        icon: () => {
+          const CurrentIcon = selectedTool === 'pen' ? PenTool :
+                            selectedTool === 'marker' ? Edit3 :
+                            selectedTool === 'highlighter' ? Highlighter : PenTool;
+          return React.createElement(CurrentIcon, { size: 20 });
+        },
+        name: 'Drawing Tools',
+        isDropdown: true,
+        group: 'pen',
+        defaultTool: 'pen'
+      } as BasicTool,
+      {
+        id: 'shapes',
+        icon: () => {
+          const CurrentIcon = shapes.find(s => s.id === selectedTool)?.icon || Square;
+          return React.createElement(CurrentIcon, { size: 20 });
+        },
+        name: 'Shapes',
+        isDropdown: true,
+        group: 'shapes',
+        defaultTool: 'rectangle'
+      } as BasicTool,
       basicTools[3], // eraser
-    ],
-    // Content tools group
-    [
-      basicTools[4], // text
-      basicTools[5], // fill
-      basicTools[6], // move
-      basicTools[7], // image
-    ],
-    // Style tools group
-    [
-      { id: 'color', icon: () => (
+      { id: 'separator1', isSeparator: true },
+      // Color and Line Width tools
+      {
+        id: 'color',
+        icon: () => (
         <div 
           className="w-5 h-5 rounded-full border-2 border-gray-200"
           style={{ backgroundColor: color }}
         />
-      ), name: 'Color', isDropdown: true, group: 'color' },
-      { id: 'lineWidth', icon: () => (
+        ),
+        name: 'Color',
+        group: 'color'
+      },
+      {
+        id: 'lineWidth',
+        icon: () => (
         <div className="w-5 flex items-center">
           <div 
             className="w-full rounded-sm bg-gray-800" 
             style={{ height: `${lineWidth}px` }}
           />
         </div>
-      ), name: 'Line Width', isDropdown: true, group: 'lineWidth' },
+        ),
+        name: 'Line Width',
+        group: 'lineWidth'
+      },
+      { id: 'separator2', isSeparator: true },
+      basicTools[4], // text
+      basicTools[5], // fill
+      basicTools[6], // move
+      basicTools[7], // image
+      { id: 'separator3', isSeparator: true },
     ],
     // History tools group
     [
@@ -859,274 +962,61 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     ]
   ];
 
-  // Add this type guard function
-  const isBasicTool = (tool: any): tool is BasicTool => {
-    return 'id' in tool && 'name' in tool;
+  // Component render functions
+  const DropdownArrow = ({ isOpen }: { isOpen: boolean }) => (
+    <div className="absolute bottom-0 right-0 p-0.5 bg-gray-100 rounded-full transform translate-x-1/4 translate-y-1/4">
+      <ChevronDown 
+        size={12} 
+        className={`text-gray-600 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+      />
+    </div>
+  );
+
+  const renderToolbarButton = (tool: ToolOrSeparator) => {
+    if ('isSeparator' in tool) {
+      return <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-gray-200 to-transparent my-2" />;
+    }
+    return (
+      <button
+        onClick={() => handleToolClick(tool as BasicTool)}
+        className={`p-2 rounded-lg transition-colors w-full flex items-center justify-center relative ${
+          selectedTool === tool.id || 
+          ((tool as BasicTool).isDropdown && ['pen', 'marker', 'highlighter'].includes(selectedTool) && tool.id === 'pen') ||
+          ((tool as BasicTool).isDropdown && shapes.some(s => s.id === selectedTool) && tool.id === 'shapes')
+            ? 'bg-blue-50 text-blue-600'
+            : 'hover:bg-gray-100 text-gray-700'
+        }`}
+        title={(tool as BasicTool).name}
+      >
+        {renderToolIcon(tool)}
+        {(tool as BasicTool).isDropdown && (
+          <div onClick={(e) => {
+            e.stopPropagation();
+            handleToolClick(tool as BasicTool, true);
+          }}>
+            <DropdownArrow isOpen={
+              (tool.id === 'pen' && showPenMenu) ||
+              (tool.id === 'shapes' && showShapesMenu)
+            } />
+          </div>
+        )}
+      </button>
+    );
   };
 
-  // Then modify the renderToolbar function
   const renderToolbar = () => (
-    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-md shadow-md z-20">
-      <div className="flex items-center gap-2 justify-center whitespace-nowrap">
-        {toolGroups.map((group, groupIndex) => (
-          <React.Fragment key={groupIndex}>
-            {/* Add vertical divider between groups */}
-            {groupIndex > 0 && (
-              <div className="h-8 w-px bg-gray-200 mx-1" />
-            )}
+    <div className="flex flex-col gap-1.5">
+      {toolGroups.map((group, groupIndex) => (
+        <React.Fragment key={groupIndex}>
+          <div className="flex flex-col gap-1">
             {group.map(tool => (
-              <div key={tool.id} className="relative p-1 flex-shrink-0">
-                <button
-                  onClick={(e) => {
-                    if (tool.id === 'image') {
-                      e.preventDefault();
-                      imageInputRef.current?.click();
-                    } else if (isBasicTool(tool) && tool.action) {
-                      e.preventDefault();
-                      tool.action();
-                    } else {
-                      e.stopPropagation();
-                      if (isBasicTool(tool)) {
-                        if (!tool.isDropdown) {
-                          setSelectedTool(tool.id as ToolType);
-                        } else {
-                          if (tool.group === 'pen') {
-                            setShowPenMenu(!showPenMenu);
-                            setShowShapesMenu(false);
-                            setShowColorPalette(false);
-                          } else if (tool.group === 'shapes') {
-                            setShowShapesMenu(!showShapesMenu);
-                            setShowPenMenu(false);
-                            setShowColorPalette(false);
-                          } else if (tool.group === 'color') {
-                            setShowColorPalette(!showColorPalette);
-                            setShowPenMenu(false);
-                            setShowShapesMenu(false);
-                          } else if (tool.group === 'lineWidth') {
-                            setShowLineWidthMenu(!showLineWidthMenu);
-                            setShowPenMenu(false);
-                            setShowShapesMenu(false);
-                            setShowColorPalette(false);
-                          }
-                        }
-                      }
-                    }
-                  }}
-                  className={`p-2 rounded-md transition-colors flex items-center justify-center min-w-[40px] ${
-                    isBasicTool(tool) && tool.disabled ? 'opacity-50 cursor-not-allowed' : 
-                    (isBasicTool(tool) && !tool.isDropdown && selectedTool === tool.id) || 
-                    (tool.id === 'pen' && ['pen', 'marker', 'highlighter'].includes(selectedTool)) ||
-                    (tool.id === 'shapes' && shapes.some(s => s.id === selectedTool))
-                      ? 'bg-blue-500 text-white' 
-                      : 'hover:bg-gray-100'
-                  }`}
-                  disabled={isBasicTool(tool) && tool.disabled}
-                >
-                  {tool.id === 'pen' && ['pen', 'marker', 'highlighter'].includes(selectedTool) ? (
-                    <div className="w-5 h-5">
-                      {React.createElement(
-                        penTools.find(pt => pt.id === selectedTool)?.icon || PenTool,
-                        { size: 20 }
-                      )}
-                    </div>
-                  ) : tool.id === 'shapes' && shapes.some(s => s.id === selectedTool) ? (
-                    <div className="w-5 h-5">
-                      {React.createElement(
-                        shapes.find(s => s.id === selectedTool)?.icon || Square,
-                        { size: 20 }
-                      )}
-                    </div>
-                  ) : (
-                    <tool.icon size={20} />
-                  )}
-                  {isBasicTool(tool) && tool.isDropdown && <ChevronDown size={16} className="ml-1" />}
-                </button>
-
-                {/* Pen Tools Dropdown */}
-                {tool.id === 'pen' && showPenMenu && (
-                  <div className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg p-2 z-50 min-w-[150px]">
-                    {penTools.map(penTool => (
-                      <button
-                        key={penTool.id}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setSelectedTool(penTool.id);
-                          setLineWidth(penTool.width);
-                          setShowPenMenu(false);
-                        }}
-                        className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-md w-full"
-                      >
-                        <penTool.icon size={16} />
-                        <span>{penTool.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Shapes Dropdown */}
-                {tool.id === 'shapes' && showShapesMenu && (
-                  <div className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg p-4 z-50 w-[280px]">
-                    <div className="grid grid-cols-5 gap-3">
-                      {shapes.map(shape => (
-                        <button
-                          key={shape.id}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setSelectedTool(shape.id);
-                            setShowShapesMenu(false);
-                          }}
-                          className={`p-2 hover:bg-gray-50 rounded-md transition-colors flex items-center justify-center ${
-                            selectedTool === shape.id ? 'bg-blue-50 ring-1 ring-blue-500' : ''
-                          }`}
-                          title={shape.id}
-                        >
-                          <shape.icon 
-                            size={18} 
-                            className={`transition-transform ${
-                              shape.id === 'diamond' ? 'rotate-45' :
-                              shape.id === 'parallelogram' ? 'skew-x-12' :
-                              shape.id === 'dot' ? 'scale-50' :
-                              shape.id === 'ellipse' ? 'scale-x-150' :
-                              shape.id === 'smallSquare' ? 'scale-75' :
-                              ''
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Color Picker Dropdown */}
-                {tool.id === 'color' && showColorPalette && (
-                  <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg p-4 z-50 w-64">
-                    {Object.entries(colorPalettes).map(([paletteName, colors]) => (
-                      <div key={paletteName} className="mb-4">
-                        <div className="text-sm font-medium text-gray-700 capitalize mb-2">
-                          {paletteName}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {colors.map(colorOption => (
-                            <button
-                              key={colorOption}
-                              onClick={() => {
-                                setColor(colorOption);
-                                setShowColorPalette(false);
-                              }}
-                              className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${
-                                color === colorOption 
-                                  ? 'ring-2 ring-offset-2 ring-blue-500' 
-                                  : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-300'
-                              }`}
-                              style={{ backgroundColor: colorOption }}
-                              title={colorOption}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {/* Custom Color */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium text-gray-700">
-                          Custom Color
-                        </div>
-                        <div className="relative">
-                          <label 
-                            className={`w-7 h-7 rounded-full transition-transform hover:scale-110 inline-block ${
-                              'ring-2 ring-offset-2 ring-gray-200 hover:ring-blue-500'
-                            }`}
-                            style={{ backgroundColor: color }}
-                          >
-                            <input
-                              type="color"
-                              value={color}
-                              onChange={(e) => {
-                                setColor(e.target.value);
-                                setShowColorPalette(false);
-                              }}
-                              className="opacity-0 absolute w-full h-full cursor-pointer"
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Line Width Dropdown */}
-                {tool.id === 'lineWidth' && showLineWidthMenu && (
-                  <div className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg p-3 z-50 min-w-[200px]">
-                    {/* Custom Slider */}
-                    <div className="mb-4 px-2">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Custom Width</span>
-                        <span className="text-sm text-gray-500">{lineWidth}px</span>
-                      </div>
-                      <div className="relative h-4 flex items-center">
-                        <input
-                          type="range"
-                          min="1"
-                          max="20"
-                          value={lineWidth}
-                          onChange={(e) => setLineWidth(parseInt(e.target.value))}
-                          className="absolute w-full h-4 cursor-pointer appearance-none bg-transparent z-10
-                            [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-runnable-track]:rounded-full
-                            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 
-                            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white 
-                            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 
-                            [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:mt-[-6px]
-                            [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:transition-transform
-                            [&::-moz-range-track]:h-1 [&::-moz-range-track]:bg-gray-200 [&::-moz-range-track]:rounded-full
-                            [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:border-none
-                            [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white 
-                            [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-blue-500"
-                        />
-                        <div className="absolute w-full h-1 bg-gray-100 rounded-full overflow-hidden pointer-events-none">
-                          <div 
-                            className="absolute h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full pointer-events-none transition-all duration-150"
-                            style={{ width: `${(lineWidth / 20) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="h-px bg-gray-200 my-2" />
-
-                    {/* Preset Options */}
-                    <div className="space-y-2">
-                      {lineWidthPresets.map(preset => (
-                        <button
-                          key={preset.size}
-                          onClick={() => {
-                            setLineWidth(preset.size);
-                            setShowLineWidthMenu(false);
-                          }}
-                          className={`w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-md transition-colors ${
-                            lineWidth === preset.size ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <div className="w-12 flex items-center">
-                            <div 
-                              className="w-full rounded-full bg-gray-800" 
-                              style={{ height: `${preset.size}px` }}
-                            />
-                          </div>
-                          <span className="text-sm text-gray-700">{preset.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <React.Fragment key={tool.id}>
+                {renderToolbarButton(tool)}
+              </React.Fragment>
             ))}
-          </React.Fragment>
-        ))}
-      </div>
+          </div>
+        </React.Fragment>
+      ))}
     </div>
   );
 
@@ -1391,28 +1281,219 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     }
   };
 
+  const getCursorStyle = () => {
+    switch (selectedTool) {
+      case 'pen':
+        return 'cursor-[url(/cursors/pen.png),_pointer]';
+      case 'marker':
+        return 'cursor-[url(/cursors/marker.png),_pointer]';
+      case 'highlighter':
+        return 'cursor-[url(/cursors/highlighter.png),_pointer]';
+      case 'eraser':
+        return 'cursor-[url(/cursors/eraser.png),_pointer]';
+      case 'text':
+        return 'cursor-text';
+      case 'select':
+      case 'move':
+        return 'cursor-move';
+      default:
+        return 'cursor-crosshair';
+    }
+  };
+
+  // Add these functions for import/export
+  const exportBoard = () => {
+    const boardData = {
+      drawings: history,
+      settings,
+      version: '1.0'
+    };
+    const dataStr = JSON.stringify(boardData);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportName = `doodlesphere_${roomId}_${new Date().toISOString().slice(0,10)}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportName);
+    linkElement.click();
+  };
+
+  const importBoard = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const boardData = JSON.parse(e.target?.result as string);
+        setHistory(boardData.drawings);
+        setSettings(boardData.settings);
+        
+        // Redraw the canvas
+        const ctx = canvasRef.current?.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+          boardData.drawings.forEach((entry: HistoryEntry) => {
+            if (entry.data) {
+              drawShape(ctx, entry.data);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Failed to import board:', error);
+        alert('Invalid board file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
-    <div 
-      ref={containerRef} 
-      style={{ 
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: '#f3f4f6'
-      }}
-    >
+    <div className="relative h-screen w-screen bg-gray-50 overflow-hidden" ref={containerRef}>
+      {/* Toolbar */}
+      <div className="fixed top-4 left-4 bg-white rounded-xl shadow-lg z-20 p-1.5">
+        {renderToolbar()}
+      </div>
+
+      {/* Settings Button and Menu */}
+      <div className="fixed top-4 right-4 z-30">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+          title="Settings"
+        >
+          <Settings size={20} className="text-gray-700" />
+        </button>
+
+        {showSettings && (
+          <>
+            {/* Overlay */}
+            <div 
+              className="fixed inset-0 bg-black/20 z-20" 
+              style={{ zIndex: -1 }}
+              onClick={() => setShowSettings(false)}
+            />
+            
+            {/* Settings Menu */}
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <h3 className="font-medium text-gray-900">Settings</h3>
+                <button 
+                  onClick={() => setShowSettings(false)}
+                  className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-500 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-6">
+                {/* Grid Settings */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Grid</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between group">
+                      <span className="text-sm text-gray-600 group-hover:text-gray-900">Show Grid</span>
+                      <Toggle 
+                        enabled={settings.showGrid} 
+                        onChange={() => setSettings(s => ({ ...s, showGrid: !s.showGrid }))}
+                        variant="grid"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between group">
+                      <span className="text-sm text-gray-600 group-hover:text-gray-900">Snap to Grid</span>
+                      <Toggle 
+                        enabled={settings.snapToGrid} 
+                        onChange={() => setSettings(s => ({ ...s, snapToGrid: !s.snapToGrid }))}
+                        variant="snap"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Theme Settings */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Theme</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between group">
+                      <span className="text-sm text-gray-600 group-hover:text-gray-900">Dark Mode</span>
+                      <Toggle 
+                        enabled={settings.darkMode} 
+                        onChange={() => setSettings(s => ({ ...s, darkMode: !s.darkMode }))}
+                        variant="darkMode"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Save Settings */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Save & Backup</h4>
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between group">
+                      <span className="text-sm text-gray-600 group-hover:text-gray-900">Auto Save</span>
+                      <Toggle 
+                        enabled={settings.autoSave} 
+                        onChange={() => setSettings(s => ({ ...s, autoSave: !s.autoSave }))}
+                        variant="autoSave"
+                      />
+                    </label>
+
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={exportBoard}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium bg-gray-50 hover:bg-gray-100 
+                          text-gray-600 hover:text-gray-700 rounded-md transition-colors"
+                      >
+                        Export Board
+                      </button>
+                      <label className="flex-1">
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={importBoard}
+                          className="hidden"
+                        />
+                        <span className="block px-3 py-1.5 text-xs font-medium bg-gray-50 hover:bg-gray-100 
+                          text-gray-600 hover:text-gray-700 rounded-md transition-colors text-center cursor-pointer">
+                          Import Board
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => setShowResetModal(true)}
+                    className="w-full px-3 py-1.5 text-xs font-medium bg-red-50 hover:bg-red-100 
+                      text-red-600 hover:text-red-700 rounded-md transition-colors"
+                  >
+                    Reset Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Move download button to bottom left */}
+      <div className="fixed bottom-4 left-4 z-20">
+        <button
+          onClick={downloadWhiteboard}
+          className="p-3 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors"
+          title="Download Whiteboard"
+        >
+          <Download size={24} />
+        </button>
+      </div>
+
+      {/* Canvas */}
       <canvas
         ref={canvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: 'white'
-        }}
+        className={`absolute inset-0 bg-white ${getCursorStyle()}`}
+        style={{ width: '100%', height: '100%' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1420,66 +1501,46 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
       />
       <canvas
         ref={previewCanvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none'
-        }}
+        className="absolute inset-0 pointer-events-none"
+        style={{ width: '100%', height: '100%' }}
       />
-      {/* Room Details */}
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-md shadow-md z-20">
-        <div className="flex items-center justify-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm text-gray-600 whitespace-nowrap">Room ID: {roomId}</p>
+
+      {/* Room Info */}
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-xl shadow-lg z-20 px-4 py-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Room ID:</span>
+            <span className="text-sm font-medium">{roomId}</span>
             <button
               onClick={copyRoomId}
-              className="p-1 hover:bg-gray-100 rounded-md flex-shrink-0 text-gray-600"
+              className="p-1 hover:bg-gray-100 rounded-md"
               title="Copy Room ID"
             >
-              <Copy size={16} />
+              <Copy size={14} className="text-gray-500" />
             </button>
           </div>
-          <div className="w-px h-4 bg-gray-200" /> {/* Vertical divider */}
-          <p className="text-sm text-gray-600 whitespace-nowrap">User: {username}</p>
+          <div className="h-4 w-px bg-gray-200" />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">User:</span>
+            <span className="text-sm font-medium">{username}</span>
         </div>
       </div>
-
-      {/* Copy Toast Notification */}
-      {showCopyToast && (
-        <div 
-          className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-black/75 text-white px-3 py-2 rounded-full text-sm shadow-lg transition-opacity duration-200 flex items-center gap-2"
-        >
-          <svg 
-            className="w-4 h-4 text-green-400" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          Room ID copied!
         </div>
-      )}
 
-      {renderToolbar()}
-
+      {/* Action Buttons */}
+      <div className="fixed bottom-4 right-4 flex flex-col gap-2">
       <button
         onClick={() => setShowChat(!showChat)}
-        className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full p-3 shadow-lg hover:bg-blue-600 z-10"
+          className="p-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-colors"
+          title={showChat ? "Close Chat" : "Open Chat"}
       >
         {showChat ? <X size={24} /> : <MessageCircle size={24} />}
       </button>
+      </div>
 
+      {/* Chat Window */}
       {showChat && (
-        <div className="absolute right-4 bottom-20 w-96 h-96 bg-white rounded-lg shadow-xl z-10">
+        <div className="fixed right-4 bottom-24 w-96 h-[32rem] z-30">
           <Chat 
             socket={socket} 
             roomId={roomId} 
@@ -1489,44 +1550,33 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
         </div>
       )}
 
-      {/* Text Input Overlay */}
-      {textPosition.x !== 0 && textPosition.y !== 0 && (
-        <div
-          className="absolute z-50"
-          style={{
-            left: textPosition.x,
-            top: textPosition.y
-          }}
-        >
-          <textarea
-            value={textValue}
-            onChange={(e) => setTextValue(e.target.value)}
-            onBlur={handleTextSubmit}
-            onKeyDown={(e) => e.key === 'Enter' && handleTextSubmit()}
-            className="border-2 border-blue-500 rounded p-1"
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.8)',
-              color,
-              fontSize: `${textSize}px`
-            }}
-            placeholder="Type here..."
-          />
+      {/* Copy Toast */}
+      {showCopyToast && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-black/75 text-white px-4 py-2 rounded-full text-sm shadow-lg z-50 flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-green-400" />
+          Room ID copied!
         </div>
       )}
 
-      <button
-        onClick={downloadWhiteboard}
-        className="fixed bottom-4 left-4 bg-green-500 text-white rounded-full p-3 shadow-lg hover:bg-green-600 z-10"
-      >
-        <Download size={24} />
-      </button>
-
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleImageImport}
-        className="hidden"
+      {/* Reset Modal */}
+      <Modal
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        onConfirm={() => {
+          setSettings({
+            showGrid: false,
+            snapToGrid: false,
+            darkMode: false,
+            autoSave: true,
+            gridSize: 20,
+            gridColor: '#e5e7eb',
+            backgroundColor: '#ffffff'
+          });
+        }}
+        title="Reset Settings"
+        message="Are you sure you want to reset all settings to default? This action cannot be undone."
+        confirmText="Reset"
+        cancelText="Cancel"
       />
     </div>
   );
