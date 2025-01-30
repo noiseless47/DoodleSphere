@@ -11,12 +11,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@emoji-mart/data": "^1.1.2",
+    "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
-    "emoji-mart": "^5.5.2",
     "@shadcn/ui": "^0.0.4",
-    "@types/socket.io-client": "^1.4.36",
     "@types/node": "^20.0.0",
+    "@types/socket.io-client": "^1.4.36",
+    "emoji-mart": "^5.5.2",
     "framer-motion": "^12.0.3",
     "lucide-react": "^0.473.0",
     "react": "^18.3.1",

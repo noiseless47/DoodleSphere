@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io as socketIO } from 'socket.io-client';
-import { Send, X, Image, Smile, Paperclip } from 'lucide-react';
+import { Send, X, Image, Smile, Paperclip, ChevronDown } from 'lucide-react';
 import { Socket } from 'socket.io-client';
+import data from '@emoji-mart/data';
+import Picker from '@emoji-mart/react';
 
 interface ChatProps {
   socket: Socket;
@@ -229,37 +231,45 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-xl">
+    <div className="flex flex-col h-full bg-zinc-900 rounded-lg shadow-xl text-gray-100">
       {/* Chat Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-blue-500 text-white rounded-t-lg">
+      <div className="flex items-center justify-between p-4 border-b border-zinc-700 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
         <div>
-          <h3 className="font-semibold text-lg">Chat Room</h3>
-          <p className="text-sm text-blue-100">Room ID: {roomId}</p>
+          <h3 className="font-bold text-lg">Chat Room</h3>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-blue-100">Room ID: {roomId}</p>
+            <button
+              onClick={() => navigator.clipboard.writeText(roomId)}
+              className="text-xs px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 rounded-full transition-colors"
+            >
+              Copy
+            </button>
+          </div>
         </div>
         <button 
           onClick={onClose}
-          className="p-2 hover:bg-blue-600 rounded-full transition-colors"
+          className="p-2 hover:bg-blue-600/50 rounded-full transition-colors"
         >
           <X size={20} />
         </button>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+      <div className="flex-1 p-4 overflow-y-auto bg-zinc-800/50 space-y-4">
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`mb-4 ${
-              msg.senderId === socket.id ? 'flex flex-col items-end' : 'flex flex-col items-start'
+            className={`flex flex-col ${
+              msg.senderId === socket.id ? 'items-end' : 'items-start'
             }`}
           >
             <div className="flex items-center space-x-2 mb-1">
-              <span className="text-xs font-medium text-gray-600">{msg.username}</span>
-              <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
+              <span className="text-xs font-medium text-zinc-400">{msg.username}</span>
+              <span className="text-xs text-zinc-500">{formatTime(msg.timestamp)}</span>
             </div>
 
             {msg.type === 'image' && (msg.fileUrl || msg.fileData) ? (
-              <div className="max-w-[200px] rounded-lg overflow-hidden shadow">
+              <div className="max-w-[240px] rounded-lg overflow-hidden shadow-lg">
                 <img 
                   src={msg.fileData || msg.fileUrl}
                   alt={msg.fileName || 'Image'} 
@@ -274,12 +284,12 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
               <a 
                 href={msg.fileData || msg.fileUrl}
                 download={msg.fileName}
-                className="flex items-center space-x-2 p-2 bg-white rounded-lg shadow hover:bg-gray-50"
+                className="flex items-center gap-2 p-3 bg-zinc-700/50 hover:bg-zinc-700 rounded-lg transition-colors"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Paperclip size={16} className="text-blue-500" />
-                <span className="text-sm text-blue-500 hover:underline">
+                <Paperclip size={16} className="text-blue-400" />
+                <span className="text-sm text-blue-400 hover:underline">
                   {msg.fileName || 'Download File'}
                 </span>
               </a>
@@ -287,8 +297,8 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
               <div
                 className={`rounded-lg px-4 py-2 max-w-[80%] ${
                   msg.senderId === socket.id
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-800 shadow'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-700/50 text-gray-100'
                 }`}
               >
                 {msg.message}
@@ -300,74 +310,101 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
         
         {/* Typing Indicator */}
         {typingUsers.size > 0 && (
-          <div className="text-sm text-gray-500 italic">
+          <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <div className="flex gap-1">
+              <span className="animate-bounce">•</span>
+              <span className="animate-bounce delay-100">•</span>
+              <span className="animate-bounce delay-200">•</span>
+            </div>
             {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
           </div>
         )}
       </div>
 
       {/* Input Area */}
-      <form onSubmit={sendMessage} className="p-4 border-t bg-white rounded-b-lg relative">
-        <div className="flex flex-col gap-2">
+      <form onSubmit={sendMessage} className="p-4 border-t border-zinc-700 bg-zinc-800/50 rounded-b-lg">
+        <div className="space-y-3">
+          {/* File Preview */}
           {selectedFile && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md">
-              <Paperclip size={16} className="text-gray-500" />
-              <span className="text-sm text-gray-600 truncate">{selectedFile.name}</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-zinc-700/50 rounded-lg">
+              <Paperclip size={16} className="text-zinc-400" />
+              <span className="text-sm text-zinc-300 truncate">{selectedFile.name}</span>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedFile(null);
                   setFilePreview('');
-                  setNewMessage('');
                 }}
-                className="ml-auto text-gray-500 hover:text-red-500"
+                className="ml-auto text-zinc-400 hover:text-red-400"
               >
                 <X size={16} />
               </button>
             </div>
           )}
+          
+          {/* Image Preview */}
           {filePreview && (
             <div className="max-w-[200px] rounded-lg overflow-hidden">
               <img src={filePreview} alt="Preview" className="w-full h-auto" />
             </div>
           )}
+
+          {/* Input Bar */}
           <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={handleTyping}
-              placeholder={selectedFile ? 'Press Enter to send file...' : 'Type a message...'}
-              className="flex-1 min-w-0 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={handleTyping}
+                placeholder={selectedFile ? 'Press Enter to send file...' : 'Type a message...'}
+                className="w-full px-4 py-2 bg-zinc-700/50 border border-zinc-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-zinc-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-full transition-colors"
                 title="Attach file"
               >
                 <Paperclip size={20} />
               </button>
-              <button
-                type="button"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                title="Add emoji"
-              >
-                <Smile size={20} />
-              </button>
+              
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-full transition-colors"
+                  title="Add emoji"
+                >
+                  <Smile size={20} />
+                </button>
+                
+                {showEmojiPicker && (
+                  <div className="absolute bottom-full right-0 mb-2">
+                    <Picker 
+                      data={data} 
+                      onEmojiSelect={handleEmojiSelect}
+                      theme="dark"
+                      previewPosition="none"
+                    />
+                  </div>
+                )}
+              </div>
+
               <button
                 type="submit"
                 disabled={isUploading}
                 className={`p-2 rounded-full transition-colors ${
                   isUploading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    ? 'bg-zinc-600 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
                 title={isUploading ? 'Uploading...' : 'Send message'}
               >
                 {isUploading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <Send size={20} />
                 )}
@@ -375,20 +412,6 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
             </div>
           </div>
         </div>
-        
-        {/* Emoji Picker */}
-        {/* Comment out the emoji picker UI temporarily
-          {showEmojiPicker && (
-            <div className="absolute bottom-full right-0 mb-2">
-              <Picker
-                data={data}
-                onEmojiSelect={handleEmojiSelect}
-                theme="light"
-                previewPosition="none"
-              />
-            </div>
-          )}
-        */}
 
         <input
           ref={fileInputRef}
