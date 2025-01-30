@@ -154,20 +154,61 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
     setShowEmojiPicker(false);
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Attempting to send message:', newMessage);
-    
-    if (newMessage.trim()) {
+
+    if (selectedFile && !isUploading) {
+      try {
+        setIsUploading(true);
+        
+        const readFileAsDataURL = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(file);
+          });
+        };
+
+        const base64Data = await readFileAsDataURL(selectedFile);
+        const isImage = selectedFile.type.startsWith('image/');
+        
+        const messageData = {
+          roomId,
+          message: selectedFile.name,
+          username,
+          userId: socket.id,
+          senderId: socket.id,
+          timestamp: new Date().toLocaleTimeString(),
+          type: isImage ? 'image' : 'file',
+          fileUrl: base64Data,
+          fileName: selectedFile.name,
+          fileData: base64Data
+        };
+
+        socket.emit('chat-message', messageData);
+
+        // Clear file states
+        setSelectedFile(null);
+        setFilePreview('');
+        setNewMessage('');
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        alert('Failed to send file. Please try again.');
+      } finally {
+        setIsUploading(false);
+      }
+    } else if (newMessage.trim() && !isUploading) {
       const messageData = {
         roomId,
         message: newMessage.trim(),
         username,
-        type: 'text',
-        timestamp: new Date().toISOString()
+        userId: socket.id,
+        senderId: socket.id,
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'text'
       };
 
-      console.log('Emitting chat message:', messageData);
       socket.emit('chat-message', messageData);
       setNewMessage('');
     }
@@ -266,26 +307,96 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
       </div>
 
       {/* Input Area */}
-      <form 
-        onSubmit={handleSendMessage} 
-        className="p-4 border-t bg-white rounded-b-lg relative"
-      >
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={handleTyping}
-            placeholder="Type a message..."
-            className="flex-1 min-w-0 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
-            disabled={!newMessage.trim()}
-          >
-            <Send size={20} />
-          </button>
+      <form onSubmit={sendMessage} className="p-4 border-t bg-white rounded-b-lg relative">
+        <div className="flex flex-col gap-2">
+          {selectedFile && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md">
+              <Paperclip size={16} className="text-gray-500" />
+              <span className="text-sm text-gray-600 truncate">{selectedFile.name}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFile(null);
+                  setFilePreview('');
+                  setNewMessage('');
+                }}
+                className="ml-auto text-gray-500 hover:text-red-500"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {filePreview && (
+            <div className="max-w-[200px] rounded-lg overflow-hidden">
+              <img src={filePreview} alt="Preview" className="w-full h-auto" />
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={handleTyping}
+              placeholder={selectedFile ? 'Press Enter to send file...' : 'Type a message...'}
+              className="flex-1 min-w-0 px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                title="Attach file"
+              >
+                <Paperclip size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                title="Add emoji"
+              >
+                <Smile size={20} />
+              </button>
+              <button
+                type="submit"
+                disabled={isUploading}
+                className={`p-2 rounded-full transition-colors ${
+                  isUploading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+                title={isUploading ? 'Uploading...' : 'Send message'}
+              >
+                {isUploading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send size={20} />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
+        
+        {/* Emoji Picker */}
+        {/* Comment out the emoji picker UI temporarily
+          {showEmojiPicker && (
+            <div className="absolute bottom-full right-0 mb-2">
+              <Picker
+                data={data}
+                onEmojiSelect={handleEmojiSelect}
+                theme="light"
+                previewPosition="none"
+              />
+            </div>
+          )}
+        */}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileUpload}
+          className="hidden"
+          accept="image/*,.pdf,.doc,.docx"
+        />
       </form>
     </div>
   );

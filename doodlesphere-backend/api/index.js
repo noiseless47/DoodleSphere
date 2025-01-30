@@ -61,81 +61,43 @@ const rooms = new Map();
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
   
-  // Handle join room with proper room data
-  socket.on('join-room', ({ roomId, username }) => {
-    console.log(`User ${username} joining room ${roomId}`);
+  socket.on('join-room', (roomId) => {
     socket.join(roomId);
-    socket.username = username;
     
     if (!rooms.has(roomId)) {
       rooms.set(roomId, {
         users: new Map(),
         drawings: [],
         history: [],
-        redoStack: [],
-        messages: []
+        redoStack: []
       });
     }
     
     const room = rooms.get(roomId);
     room.users.set(socket.id, { 
       id: socket.id,
-      username: username
+      username: socket.username
     });
     
-    // Send existing state immediately after joining
+    // Send existing drawings to new user
     socket.emit('initial-state', {
       drawings: room.drawings,
       history: room.history,
-      redoStack: room.redoStack,
-      messages: room.messages
-    });
-  });
-
-  // Handle chat messages
-  socket.on('chat-message', (data) => {
-    console.log('Chat message received:', data);
-    const room = rooms.get(data.roomId);
-    if (room) {
-      const messageData = {
-        ...data,
-        userId: socket.id,
-        senderId: socket.id,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log('Broadcasting message:', messageData);
-      // Store message in room history
-      room.messages.push(messageData);
-      
-      // Broadcast to all users in the room (including sender)
-      io.to(data.roomId).emit('chat-message', messageData);
-    } else {
-      console.log('Room not found:', data.roomId);
-    }
-  });
-
-  // Handle typing events
-  socket.on('typing', ({ roomId, isTyping }) => {
-    socket.to(roomId).emit('user-typing', {
-      username: socket.username,
-      isTyping
+      redoStack: room.redoStack
     });
   });
 
   // Handle drawing events
   socket.on('draw', (data) => {
-    console.log('Draw event received:', { roomId: data.roomId, tool: data.tool });
+    console.log('Draw event received:', data.tool); // Add logging
     const room = rooms.get(data.roomId);
     if (room) {
       // Add to room history
       room.drawings.push(data);
       room.history.push({ type: 'draw', data });
       
-      // Important: Broadcast to ALL clients in the room, including sender
-      io.to(data.roomId).emit('draw', data);
-    } else {
-      console.log('Room not found for drawing:', data.roomId);
+      // Broadcast to all other users in the room
+      socket.broadcast.to(data.roomId).emit('draw', data);
     }
   });
 

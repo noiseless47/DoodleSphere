@@ -1162,32 +1162,30 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     if (['pen', 'marker', 'highlighter', 'eraser'].includes(selectedTool)) {
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx) {
-        // Draw locally
-        ctx.beginPath();
-        ctx.moveTo(lastX.current, lastY.current);
-        ctx.lineTo(currentX, currentY);
-        ctx.strokeStyle = selectedTool === 'eraser' ? '#FFFFFF' : color;
-        ctx.lineWidth = lineWidth;
-        if (selectedTool === 'highlighter') {
-          ctx.globalAlpha = 0.3;
+        const minDistance = 2;
+        const dx = currentX - lastX.current;
+        const dy = currentY - lastY.current;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance >= minDistance) {
+          // Draw locally
+          ctx.beginPath();
+          ctx.moveTo(lastX.current, lastY.current);
+          ctx.lineTo(currentX, currentY);
+          ctx.strokeStyle = selectedTool === 'eraser' ? '#FFFFFF' : color;
+          ctx.lineWidth = lineWidth;
+          if (selectedTool === 'highlighter') {
+            ctx.globalAlpha = 0.3;
+          }
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+
+          // Only collect points for the final stroke
+          setCurrentPath(prev => [...prev, { x: currentX, y: currentY }]);
+
+          lastX.current = currentX;
+          lastY.current = currentY;
         }
-        ctx.stroke();
-        ctx.globalAlpha = 1.0;
-
-        // Emit to server
-        socket.emit('draw', {
-          roomId,
-          startX: lastX.current,
-          startY: lastY.current,
-          endX: currentX,
-          endY: currentY,
-          color: selectedTool === 'eraser' ? '#FFFFFF' : color,
-          lineWidth,
-          tool: selectedTool
-        });
-
-        lastX.current = currentX;
-        lastY.current = currentY;
       }
     } else {
       // Handle shapes preview
