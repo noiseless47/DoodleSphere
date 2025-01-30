@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: doodlesphere-backend
+    name: doodlesphere
     env: node
     rootDir: doodlesphere-backend
     buildCommand: npm install
