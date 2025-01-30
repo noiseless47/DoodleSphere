@@ -79,14 +79,91 @@ io.on('connection', (socket) => {
       username: socket.username
     });
     
+    // Send existing drawings to new user
     socket.emit('initial-state', {
       drawings: room.drawings,
       history: room.history,
       redoStack: room.redoStack
     });
   });
-  
-  // ... rest of your socket handlers
+
+  // Handle drawing events
+  socket.on('draw', (data) => {
+    console.log('Draw event received:', data.tool); // Add logging
+    const room = rooms.get(data.roomId);
+    if (room) {
+      // Add to room history
+      room.drawings.push(data);
+      room.history.push({ type: 'draw', data });
+      
+      // Broadcast to all other users in the room
+      socket.broadcast.to(data.roomId).emit('draw', data);
+    }
+  });
+
+  socket.on('undo', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (room && room.history.length > 0) {
+      const lastAction = room.history.pop();
+      room.redoStack.push(lastAction);
+
+      room.drawings = room.history
+        .filter(entry => entry.type === 'draw')
+        .map(entry => entry.data);
+
+      // Broadcast to all users in the room
+      io.to(roomId).emit('undo', {
+        drawings: room.drawings,
+        history: room.history,
+        redoStack: room.redoStack
+      });
+    }
+  });
+
+  socket.on('redo', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (room && room.redoStack.length > 0) {
+      const action = room.redoStack.pop();
+      room.history.push(action);
+
+      if (action.type === 'draw') {
+        room.drawings.push(action.data);
+      }
+
+      // Broadcast to all users in the room
+      io.to(roomId).emit('redo', {
+        drawings: room.drawings,
+        history: room.history,
+        redoStack: room.redoStack
+      });
+    }
+  });
+
+  socket.on('clear-board', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      room.drawings = [];
+      room.history = [{ type: 'clear' }];
+      room.redoStack = [];
+      
+      // Broadcast to all users in the room
+      io.to(roomId).emit('clear-board');
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+    rooms.forEach((room, roomId) => {
+      if (room.users.has(socket.id)) {
+        room.users.delete(socket.id);
+        if (room.users.size === 0) {
+          rooms.delete(roomId);
+        } else {
+          socket.to(roomId).emit('user-left', socket.id);
+        }
+      }
+    });
+  });
 });
 
 // Start server
