@@ -284,12 +284,16 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
               <a 
                 href={msg.fileData || msg.fileUrl}
                 download={msg.fileName}
-                className="flex items-center gap-2 p-3 bg-zinc-700/50 hover:bg-zinc-700 rounded-lg transition-colors"
+                className={`flex items-center gap-2 p-3 rounded-lg transition-colors ${
+                  msg.senderId === socket.id
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-white shadow text-gray-800 hover:bg-gray-50'
+                }`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Paperclip size={16} className="text-blue-400" />
-                <span className="text-sm text-blue-400 hover:underline">
+                <Paperclip size={16} className={msg.senderId === socket.id ? 'text-white' : 'text-blue-500'} />
+                <span className={`text-sm ${msg.senderId === socket.id ? 'text-white' : 'text-blue-500'} hover:underline`}>
                   {msg.fileName || 'Download File'}
                 </span>
               </a>
@@ -326,16 +330,16 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
         <div className="space-y-3">
           {/* File Preview */}
           {selectedFile && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-zinc-700/50 rounded-lg">
-              <Paperclip size={16} className="text-zinc-400" />
-              <span className="text-sm text-zinc-300 truncate">{selectedFile.name}</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
+              <Paperclip size={16} className="text-blue-500" />
+              <span className="text-sm text-blue-700 truncate">{selectedFile.name}</span>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedFile(null);
                   setFilePreview('');
                 }}
-                className="ml-auto text-zinc-400 hover:text-red-400"
+                className="ml-auto text-blue-400 hover:text-red-500"
               >
                 <X size={16} />
               </button>
@@ -365,7 +369,7 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 rounded-full transition-colors"
+                className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
                 title="Attach file"
               >
                 <Paperclip size={20} />
