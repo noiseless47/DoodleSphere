@@ -3,6 +3,7 @@ import { Socket, io } from 'socket.io-client';
 import Whiteboard from './components/Whiteboard';
 import Chat from './components/Chat';
 import Login from './components/Login';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL;
 console.log('Backend URL:', BACKEND_URL); // Add this for debugging
@@ -108,13 +109,15 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-screen bg-gray-100">
-      <Whiteboard 
-        socket={socket} 
-        roomId={roomId} 
-        username={username}
-      />
-    </div>
+    <ThemeProvider>
+      <div className="h-screen w-screen bg-gray-100">
+        <Whiteboard 
+          socket={socket} 
+          roomId={roomId} 
+          username={username}
+        />
+      </div>
+    </ThemeProvider>
   );
 };
 
