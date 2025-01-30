@@ -3,14 +3,11 @@ import { Socket, io } from 'socket.io-client';
 import Whiteboard from './components/Whiteboard';
 import Chat from './components/Chat';
 import Login from './components/Login';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import { Sun, Moon } from 'lucide-react';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL;
 console.log('Backend URL:', BACKEND_URL); // Add this for debugging
 
-const AppContent: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
+const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
   const [roomId, setRoomId] = useState('');
@@ -82,41 +79,25 @@ const AppContent: React.FC = () => {
 
   if (isConnecting || !socket) {
     return (
-      <div className={`h-screen w-screen ${theme === 'dark' ? 'bg-zinc-900' : 'bg-gray-100'}`}>
-        {/* Theme Toggle Button */}
-        <button
-          onClick={toggleTheme}
-          className={`fixed top-4 right-4 p-2 rounded-full transition-colors ${
-            theme === 'dark' 
-              ? 'bg-zinc-800 hover:bg-zinc-700 text-yellow-500' 
-              : 'bg-white hover:bg-gray-100 text-gray-800 shadow-md'
-          }`}
-        >
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-
-        <div className="h-screen w-screen flex items-center justify-center bg-inherit">
-          <div className={`text-center p-8 ${
-            theme === 'dark' ? 'bg-zinc-800 text-white' : 'bg-white text-gray-800'
-          } rounded-lg shadow-lg max-w-md w-full mx-4`}>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-gray-600 mb-2">
-              {isConnecting ? 'Connecting to server...' : 'Waiting for connection...'}
-            </p>
-            {connectionError && (
-              <div className="text-red-500 mt-4 p-4 bg-red-50 rounded">
-                <p className="font-semibold">Connection Error:</p>
-                <p className="mb-2">{connectionError}</p>
-                <p className="text-sm text-gray-600 mb-4">Backend URL: {BACKEND_URL}</p>
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Retry Connection
-                </button>
-              </div>
-            )}
-          </div>
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 mb-2">
+            {isConnecting ? 'Connecting to server...' : 'Waiting for connection...'}
+          </p>
+          {connectionError && (
+            <div className="text-red-500 mt-4 p-4 bg-red-50 rounded">
+              <p className="font-semibold">Connection Error:</p>
+              <p className="mb-2">{connectionError}</p>
+              <p className="text-sm text-gray-600 mb-4">Backend URL: {BACKEND_URL}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Retry Connection
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -127,34 +108,13 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className={`h-screen w-screen ${theme === 'dark' ? 'bg-zinc-900' : 'bg-gray-100'}`}>
-      {/* Theme Toggle Button */}
-      <button
-        onClick={toggleTheme}
-        className={`fixed top-4 right-4 p-2 rounded-full transition-colors ${
-          theme === 'dark' 
-            ? 'bg-zinc-800 hover:bg-zinc-700 text-yellow-500' 
-            : 'bg-white hover:bg-gray-100 text-gray-800 shadow-md'
-        }`}
-      >
-        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-      </button>
-
+    <div className="h-screen w-screen bg-gray-100">
       <Whiteboard 
         socket={socket} 
         roomId={roomId} 
         username={username}
-        defaultColor={theme === 'dark' ? '#FFFFFF' : '#000000'}
       />
     </div>
-  );
-};
-
-const App: React.FC = () => {
-  return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
   );
 };
 

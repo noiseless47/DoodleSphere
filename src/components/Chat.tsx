@@ -4,7 +4,6 @@ import { Send, X, Image, Smile, Paperclip, ChevronDown } from 'lucide-react';
 import { Socket } from 'socket.io-client';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface ChatProps {
   socket: Socket;
@@ -33,7 +32,6 @@ type FileMessageType = {
 };
 
 const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
-  const { theme } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -233,17 +231,9 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
   };
 
   return (
-    <div className={`flex flex-col h-full rounded-lg shadow-xl ${
-      theme === 'dark' 
-        ? 'bg-zinc-900 text-gray-100' 
-        : 'bg-white text-gray-800'
-    }`}>
+    <div className="flex flex-col h-full bg-zinc-900 rounded-lg shadow-xl text-gray-100">
       {/* Chat Header */}
-      <div className={`flex items-center justify-between p-4 border-b ${
-        theme === 'dark'
-          ? 'border-zinc-700 bg-gradient-to-r from-blue-600 to-blue-700'
-          : 'border-gray-200 bg-blue-500'
-      } rounded-t-lg`}>
+      <div className="flex items-center justify-between p-4 border-b border-zinc-700 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
         <div>
           <h3 className="font-bold text-lg">Chat Room</h3>
           <div className="flex items-center gap-2">
@@ -265,9 +255,7 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
       </div>
 
       {/* Messages Area */}
-      <div className={`flex-1 p-4 overflow-y-auto ${
-        theme === 'dark' ? 'bg-zinc-800/50' : 'bg-gray-50'
-      } space-y-4`}>
+      <div className="flex-1 p-4 overflow-y-auto bg-zinc-800/50 space-y-4">
         {messages.map((msg, idx) => (
           <div
             key={idx}
@@ -334,11 +322,7 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={sendMessage} className={`p-4 border-t ${
-        theme === 'dark'
-          ? 'border-zinc-700 bg-zinc-800/50'
-          : 'border-gray-200 bg-white'
-      } rounded-b-lg`}>
+      <form onSubmit={sendMessage} className="p-4 border-t border-zinc-700 bg-zinc-800/50 rounded-b-lg">
         <div className="space-y-3">
           {/* File Preview */}
           {selectedFile && (

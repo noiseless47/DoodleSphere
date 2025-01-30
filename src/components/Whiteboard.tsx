@@ -9,13 +9,11 @@ import {
 } from 'lucide-react';
 import Chat from './Chat';
 import type { Tool, DrawData } from '../types/whiteboard';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface WhiteboardProps {
   socket: Socket;
   roomId: string;
   username: string;
-  defaultColor: string;
 }
 
 interface Point {
@@ -135,14 +133,13 @@ const lineWidthPresets = [
 // Add this type near the top of the file
 type ToolType = Tool | 'pen' | 'marker' | 'highlighter' | 'eraser' | 'text' | 'fill' | 'move' | 'image' | 'select';
 
-const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defaultColor }) => {
-  const { theme } = useTheme();
+const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState(defaultColor);
-  const [fillColor, setFillColor] = useState(theme === 'dark' ? '#1f2937' : '#ffffff');
+  const [color, setColor] = useState('#000000');
+  const [fillColor, setFillColor] = useState('#ffffff');
   const [lineWidth, setLineWidth] = useState(2);
   const [selectedTool, setSelectedTool] = useState<ToolType>('pen');
   const [showChat, setShowChat] = useState(false);
@@ -869,50 +866,48 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defau
 
   // Then modify the renderToolbar function
   const renderToolbar = () => (
-    <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 p-2 rounded-lg shadow-lg ${
-      theme === 'dark' 
-        ? 'bg-gray-800 border border-gray-700' 
-        : 'bg-white border border-gray-200'
-    }`}>
-      {toolGroups.map((group, groupIndex) => (
-        <React.Fragment key={groupIndex}>
-          {/* Add vertical divider between groups */}
-          {groupIndex > 0 && (
-            <div className="h-8 w-px bg-gray-200 mx-1" />
-          )}
-          {group.map(tool => (
-            <div key={tool.id} className="relative p-1 flex-shrink-0">
-              <button
-                onClick={(e) => {
-                  if (tool.id === 'image') {
-                    e.preventDefault();
-                    imageInputRef.current?.click();
-                  } else if (isBasicTool(tool) && tool.action) {
-                    e.preventDefault();
-                    tool.action();
-                  } else {
-                    e.stopPropagation();
-                    if (isBasicTool(tool)) {
-                      if (!tool.isDropdown) {
-                        setSelectedTool(tool.id as ToolType);
-                      } else {
-                        if (tool.group === 'pen') {
-                          setShowPenMenu(!showPenMenu);
-                          setShowShapesMenu(false);
-                          setShowColorPalette(false);
-                        } else if (tool.group === 'shapes') {
-                          setShowShapesMenu(!showShapesMenu);
-                          setShowPenMenu(false);
-                          setShowColorPalette(false);
-                        } else if (tool.group === 'color') {
-                          setShowColorPalette(!showColorPalette);
-                          setShowPenMenu(false);
-                          setShowShapesMenu(false);
-                        } else if (tool.group === 'lineWidth') {
-                          setShowLineWidthMenu(!showLineWidthMenu);
-                          setShowPenMenu(false);
-                          setShowShapesMenu(false);
-                          setShowColorPalette(false);
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-md shadow-md z-20">
+      <div className="flex items-center gap-2 justify-center whitespace-nowrap">
+        {toolGroups.map((group, groupIndex) => (
+          <React.Fragment key={groupIndex}>
+            {/* Add vertical divider between groups */}
+            {groupIndex > 0 && (
+              <div className="h-8 w-px bg-gray-200 mx-1" />
+            )}
+            {group.map(tool => (
+              <div key={tool.id} className="relative p-1 flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    if (tool.id === 'image') {
+                      e.preventDefault();
+                      imageInputRef.current?.click();
+                    } else if (isBasicTool(tool) && tool.action) {
+                      e.preventDefault();
+                      tool.action();
+                    } else {
+                      e.stopPropagation();
+                      if (isBasicTool(tool)) {
+                        if (!tool.isDropdown) {
+                          setSelectedTool(tool.id as ToolType);
+                        } else {
+                          if (tool.group === 'pen') {
+                            setShowPenMenu(!showPenMenu);
+                            setShowShapesMenu(false);
+                            setShowColorPalette(false);
+                          } else if (tool.group === 'shapes') {
+                            setShowShapesMenu(!showShapesMenu);
+                            setShowPenMenu(false);
+                            setShowColorPalette(false);
+                          } else if (tool.group === 'color') {
+                            setShowColorPalette(!showColorPalette);
+                            setShowPenMenu(false);
+                            setShowShapesMenu(false);
+                          } else if (tool.group === 'lineWidth') {
+                            setShowLineWidthMenu(!showLineWidthMenu);
+                            setShowPenMenu(false);
+                            setShowShapesMenu(false);
+                            setShowColorPalette(false);
+                          }
                         }
                       }
                     }
@@ -1006,11 +1001,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defau
 
                 {/* Color Picker Dropdown */}
                 {tool.id === 'color' && showColorPalette && (
-                  <div className={`absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg p-4 z-50 w-64 ${
-                    theme === 'dark' 
-                      ? 'bg-gray-800 border border-gray-700' 
-                      : 'bg-white border border-gray-200'
-                  }`}>
+                  <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg p-4 z-50 w-64">
                     {Object.entries(colorPalettes).map(([paletteName, colors]) => (
                       <div key={paletteName} className="mb-4">
                         <div className="text-sm font-medium text-gray-700 capitalize mb-2">
@@ -1068,11 +1059,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defau
 
                 {/* Line Width Dropdown */}
                 {tool.id === 'lineWidth' && showLineWidthMenu && (
-                  <div className={`absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg p-3 z-50 min-w-[200px] ${
-                    theme === 'dark' 
-                      ? 'bg-gray-800 border border-gray-700' 
-                      : 'bg-white border border-gray-200'
-                  }`}>
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg p-3 z-50 min-w-[200px]">
                     {/* Custom Slider */}
                     <div className="mb-4 px-2">
                       <div className="flex items-center justify-between mb-2">
@@ -1139,6 +1126,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defau
             ))}
           </React.Fragment>
         ))}
+      </div>
     </div>
   );
 
@@ -1404,165 +1392,60 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defau
   };
 
   return (
-    <div className="relative h-full w-full">
-      <div 
-        ref={containerRef} 
-        className={`relative h-full w-full overflow-hidden ${
-          theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-        }`}
-      >
-        <canvas
-          ref={canvasRef}
-          className="absolute top-0 left-0 z-10"
-        />
-        <canvas
-          ref={previewCanvasRef}
-          className="absolute top-0 left-0 z-20"
-        />
-
-        {renderToolbar()}
-
-        {showColorPalette && (
-          <div className={`absolute top-20 left-4 p-4 rounded-lg shadow-lg ${
-            theme === 'dark' 
-              ? 'bg-gray-800 border border-gray-700' 
-              : 'bg-white border border-gray-200'
-          }`}>
-            {Object.entries(colorPalettes).map(([paletteName, colors]) => (
-              <div key={paletteName} className="mb-4">
-                <div className="text-sm font-medium text-gray-700 capitalize mb-2">
-                  {paletteName}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {colors.map(colorOption => (
-                    <button
-                      key={colorOption}
-                      onClick={() => {
-                        setColor(colorOption);
-                        setShowColorPalette(false);
-                      }}
-                      className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${
-                        color === colorOption 
-                          ? 'ring-2 ring-offset-2 ring-blue-500' 
-                          : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-300'
-                      }`}
-                      style={{ backgroundColor: colorOption }}
-                      title={colorOption}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+    <div 
+      ref={containerRef} 
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: '#f3f4f6'
+      }}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'white'
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseOut={handleMouseUp}
+      />
+      <canvas
+        ref={previewCanvasRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none'
+        }}
+      />
+      {/* Room Details */}
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-md shadow-md z-20">
+        <div className="flex items-center justify-center space-x-2">
+          <div className="flex items-center space-x-2">
+            <p className="text-sm text-gray-600 whitespace-nowrap">Room ID: {roomId}</p>
+            <button
+              onClick={copyRoomId}
+              className="p-1 hover:bg-gray-100 rounded-md flex-shrink-0 text-gray-600"
+              title="Copy Room ID"
+            >
+              <Copy size={16} />
+            </button>
           </div>
-        )}
-
-        {showLineWidthMenu && (
-          <div className={`absolute top-20 left-20 p-4 rounded-lg shadow-lg ${
-            theme === 'dark' 
-              ? 'bg-gray-800 border border-gray-700' 
-              : 'bg-white border border-gray-200'
-          }`}>
-            <div className="mb-4 px-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700">Custom Width</span>
-                <span className="text-sm text-gray-500">{lineWidth}px</span>
-              </div>
-              <div className="relative h-4 flex items-center">
-                <input
-                  type="range"
-                  min="1"
-                  max="20"
-                  value={lineWidth}
-                  onChange={(e) => setLineWidth(parseInt(e.target.value))}
-                  className="absolute w-full h-4 cursor-pointer appearance-none bg-transparent z-10
-                    [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-runnable-track]:rounded-full
-                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 
-                    [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white 
-                    [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-500 
-                    [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:mt-[-6px]
-                    [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:transition-transform
-                    [&::-moz-range-track]:h-1 [&::-moz-range-track]:bg-gray-200 [&::-moz-range-track]:rounded-full
-                    [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:border-none
-                    [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white 
-                    [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-blue-500"
-                />
-                <div className="absolute w-full h-1 bg-gray-100 rounded-full overflow-hidden pointer-events-none">
-                  <div 
-                    className="absolute h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full pointer-events-none transition-all duration-150"
-                    style={{ width: `${(lineWidth / 20) * 100}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="h-px bg-gray-200 my-2" />
-
-            <div className="space-y-2">
-              {lineWidthPresets.map(preset => (
-                <button
-                  key={preset.size}
-                  onClick={() => {
-                    setLineWidth(preset.size);
-                    setShowLineWidthMenu(false);
-                  }}
-                  className={`w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-md transition-colors ${
-                    lineWidth === preset.size ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="w-12 flex items-center">
-                    <div 
-                      className="w-full rounded-full bg-gray-800" 
-                      style={{ height: `${preset.size}px` }}
-                    />
-                  </div>
-                  <span className="text-sm text-gray-700">{preset.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Room Info */}
-        <div className={`absolute top-4 right-4 flex items-center gap-2 p-2 rounded-lg ${
-          theme === 'dark' 
-            ? 'bg-gray-800 text-gray-200 border border-gray-700' 
-            : 'bg-white text-gray-800 border border-gray-200'
-        }`}>
-          <span className="text-sm">Room: {roomId}</span>
-          <button
-            onClick={copyRoomId}
-            className={`p-1 rounded hover:bg-opacity-80 ${
-              theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-            }`}
-          >
-            <Copy size={16} />
-          </button>
+          <div className="w-px h-4 bg-gray-200" /> {/* Vertical divider */}
+          <p className="text-sm text-gray-600 whitespace-nowrap">User: {username}</p>
         </div>
-
-        {/* Chat Toggle */}
-        <button
-          onClick={() => setShowChat(!showChat)}
-          className={`absolute bottom-4 right-4 p-3 rounded-full shadow-lg transition-colors ${
-            theme === 'dark'
-              ? 'bg-gray-800 text-gray-200 hover:bg-gray-700 border border-gray-700'
-              : 'bg-white text-gray-800 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <MessageCircle size={24} />
-        </button>
       </div>
-
-      {/* Chat Component */}
-      {showChat && (
-        <div className="absolute right-4 bottom-20 w-80 h-[60vh]">
-          <Chat
-            socket={socket}
-            roomId={roomId}
-            username={username}
-            onClose={() => setShowChat(false)}
-          />
-        </div>
-      )}
 
       {/* Copy Toast Notification */}
       {showCopyToast && (
@@ -1583,6 +1466,26 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username, defau
             />
           </svg>
           Room ID copied!
+        </div>
+      )}
+
+      {renderToolbar()}
+
+      <button
+        onClick={() => setShowChat(!showChat)}
+        className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full p-3 shadow-lg hover:bg-blue-600 z-10"
+      >
+        {showChat ? <X size={24} /> : <MessageCircle size={24} />}
+      </button>
+
+      {showChat && (
+        <div className="absolute right-4 bottom-20 w-96 h-96 bg-white rounded-lg shadow-xl z-10">
+          <Chat 
+            socket={socket} 
+            roomId={roomId} 
+            username={username} 
+            onClose={() => setShowChat(false)} 
+          />
         </div>
       )}
 
