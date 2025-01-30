@@ -231,16 +231,16 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-zinc-900 rounded-lg shadow-xl text-gray-100">
+    <div className="flex flex-col h-full bg-white rounded-lg shadow-xl">
       {/* Chat Header */}
-      <div className="flex items-center justify-between p-4 border-b border-zinc-700 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-lg">
+      <div className="flex items-center justify-between p-4 border-b bg-blue-500 text-white rounded-t-lg">
         <div>
           <h3 className="font-bold text-lg">Chat Room</h3>
           <div className="flex items-center gap-2">
             <p className="text-sm text-blue-100">Room ID: {roomId}</p>
             <button
               onClick={() => navigator.clipboard.writeText(roomId)}
-              className="text-xs px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 rounded-full transition-colors"
+              className="text-xs px-2 py-1 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
             >
               Copy
             </button>
@@ -248,14 +248,14 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
         </div>
         <button 
           onClick={onClose}
-          className="p-2 hover:bg-blue-600/50 rounded-full transition-colors"
+          className="p-2 hover:bg-blue-600 rounded-full transition-colors"
         >
           <X size={20} />
         </button>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 p-4 overflow-y-auto bg-zinc-800/50 space-y-4">
+      <div className="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-4">
         {messages.map((msg, idx) => (
           <div
             key={idx}
@@ -297,8 +297,8 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
               <div
                 className={`rounded-lg px-4 py-2 max-w-[80%] ${
                   msg.senderId === socket.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-700/50 text-gray-100'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white shadow text-gray-800'
                 }`}
               >
                 {msg.message}
@@ -322,7 +322,7 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={sendMessage} className="p-4 border-t border-zinc-700 bg-zinc-800/50 rounded-b-lg">
+      <form onSubmit={sendMessage} className="p-4 border-t bg-white rounded-b-lg">
         <div className="space-y-3">
           {/* File Preview */}
           {selectedFile && (
@@ -357,7 +357,7 @@ const Chat: React.FC<ChatProps> = ({ socket, roomId, username, onClose }) => {
                 value={newMessage}
                 onChange={handleTyping}
                 placeholder={selectedFile ? 'Press Enter to send file...' : 'Type a message...'}
-                className="w-full px-4 py-2 bg-zinc-700/50 border border-zinc-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-zinc-500"
+                className="w-full px-4 py-2 bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-500"
               />
             </div>
 
