@@ -4,10 +4,8 @@ services:
     env: node
     rootDir: doodlesphere-backend
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
     healthCheckPath: /health
