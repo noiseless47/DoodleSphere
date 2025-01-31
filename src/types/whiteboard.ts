@@ -1,10 +1,12 @@
+import { IColor } from "react-color-palette";
+
 export interface DrawData {
   roomId: string;
   startX: number;
   startY: number;
   endX: number;
   endY: number;
-  color: string;
+  color: IColor;
   lineWidth: number;
   tool: string;
   text?: string;

@@ -5,12 +5,16 @@ import {
   ChevronDown, Undo2, Redo2, Trash2, MousePointer,
   Triangle, Star, Hexagon, PenTool, Highlighter, Edit3,
   Move, PaintBucket, Download, Image, ArrowRight, Minus,
-  Heart, Zap, Moon, Sun, Plus, Hash, CircleDot, Box, Copy, CheckCircle2, Settings
+  Heart, Zap, Moon, Sun, Plus, Hash, CircleDot, Box, Copy, CheckCircle2, Settings, Pipette
 } from 'lucide-react';
 import Chat from './Chat';
 import type { Tool, DrawData } from '../types/whiteboard';
 import Toggle from './Toggle';
 import Modal from './Modal';
+import { isRegularTool, BasicTool, RegularTool, SeparatorTool } from '../types/tools';
+import { basicTools, penTools, shapes, lineWidthPresets } from '../constants/tools';
+import { ColorPicker, IColor } from "react-color-palette";
+import "react-color-palette/dist/css/rcp.css";
 
 interface WhiteboardProps {
   socket: Socket;
@@ -48,68 +52,9 @@ const colorPalettes = {
   ]
 };
 
-const penTools = [
-  { id: 'pen', icon: PenTool, name: 'Pen', width: 2 },
-  { id: 'marker', icon: Edit3, name: 'Marker', width: 5 },
-  { id: 'highlighter', icon: Highlighter, name: 'Highlighter', width: 20 },
-] as const;
+type ToolType = Tool | 'pen' | 'marker' | 'highlighter' | 'eraser' | 'text' | 'fill' | 'move' | 'image' | 'select' | 'colorPicker';
 
-interface Shape {
-  id: Tool;
-  icon: React.FC<any>;
-}
-
-const shapes: Shape[] = [
-  { id: 'rectangle', icon: Square },
-  { id: 'circle', icon: Circle },
-  { id: 'triangle', icon: Triangle },
-  { id: 'star', icon: Star },
-  { id: 'hexagon', icon: Hexagon },
-  { id: 'diamond', icon: Square },
-  { id: 'pentagon', icon: Triangle },
-  { id: 'octagon', icon: Square },
-  { id: 'cross', icon: X },
-  { id: 'arrow', icon: ArrowRight },
-  { id: 'line', icon: Minus },
-  { id: 'hash', icon: Hash },
-  { id: 'box', icon: Box },
-  { id: 'circleDot', icon: CircleDot },
-  { id: 'heart', icon: Heart },
-  { id: 'bolt', icon: Zap },
-  { id: 'moon', icon: Moon },
-  { id: 'sun', icon: Sun },
-  { id: 'plus', icon: Plus },
-  { id: 'dot', icon: Circle },
-  { id: 'ring', icon: Circle },
-  { id: 'parallelogram', icon: Square },
-  { id: 'trapezoid', icon: Square },
-  { id: 'ellipse', icon: Circle },
-  { id: 'smallSquare', icon: Square },
-];
-
-// Keep types and interfaces at the top level
-type IconComponent = React.ComponentType<any>;
-type CustomIconFunction = () => React.ReactElement;
-
-type BasicTool = {
-  id: string;
-  icon: IconComponent | CustomIconFunction;
-  name: string;
-  action?: () => void;
-  disabled?: boolean;
-  isDropdown?: boolean;
-  group?: string;
-  defaultTool?: string;
-};
-
-type SeparatorTool = {
-  id: string;
-  isSeparator: true;
-};
-
-type ToolOrSeparator = BasicTool | SeparatorTool;
-type ToolType = Tool | 'pen' | 'marker' | 'highlighter' | 'eraser' | 'text' | 'fill' | 'move' | 'image' | 'select';
-
+// Update the Settings interface
 interface Settings {
   showGrid: boolean;
   snapToGrid: boolean;
@@ -120,10 +65,21 @@ interface Settings {
   backgroundColor: string;
 }
 
+interface WhiteboardState {
+  color: IColor;
+  // ... other state
+}
+
 const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => {
-  // State definitions first
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState('#000000');
+  const [color, setColor] = useState<IColor>({
+    hex: "#000000",
+    rgb: { r: 0, g: 0, b: 0, a: 1 },
+    hsv: { h: 0, s: 0, v: 0, a: 1 }
+  });
   const [fillColor, setFillColor] = useState('#ffffff');
   const [lineWidth, setLineWidth] = useState(2);
   const [selectedTool, setSelectedTool] = useState<ToolType>('pen');
@@ -142,6 +98,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
   const [showTextInput, setShowTextInput] = useState(false);
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [showCopyToast, setShowCopyToast] = useState(false);
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
   
   const lastX = useRef<number>(0);
   const lastY = useRef<number>(0);
@@ -164,10 +121,6 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
   });
   
   const [showResetModal, setShowResetModal] = useState(false);
-  
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   
   const downloadWhiteboard = () => {
     if (canvasRef.current) {
@@ -276,7 +229,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
       if ('path' in data && data.path && data.path.length > 0) {
         // Handle complete pen strokes
         ctx.beginPath();
-        ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color;
+        ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color.hex;
         ctx.lineWidth = data.lineWidth;
         
         if (data.tool === 'highlighter') {
@@ -298,7 +251,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
           ctx.beginPath();
           ctx.moveTo(data.startX, data.startY);
           ctx.lineTo(data.endX, data.endY);
-          ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color;
+          ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color.hex;
           ctx.lineWidth = data.lineWidth;
           if (data.tool === 'highlighter') {
             ctx.globalAlpha = 0.3;
@@ -327,7 +280,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
           if ('path' in entry.data && entry.data.path && entry.data.path.length > 0) {
             // Draw pen strokes
             ctx.beginPath();
-            ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color;
+            ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color.hex;
             ctx.lineWidth = entry.data.lineWidth;
             
             if (entry.data.tool === 'highlighter') {
@@ -368,7 +321,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
         if ('path' in entry.data && entry.data.path && entry.data.path.length > 0) {
           // Draw pen strokes
           ctx.beginPath();
-          ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color;
+          ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color.hex;
           ctx.lineWidth = entry.data.lineWidth;
           
           if (entry.data.tool === 'highlighter') {
@@ -406,7 +359,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
         
         if ('path' in entry.data && entry.data.path && entry.data.path.length > 0) {
           ctx.beginPath();
-          ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color;
+          ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color.hex;
           ctx.lineWidth = entry.data.lineWidth;
           
           if (entry.data.tool === 'highlighter') {
@@ -460,12 +413,16 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
 
+    // Convert string color to IColor if needed
+    const drawColor = typeof data.color === 'string' 
+      ? stringToColor(data.color) 
+      : data.color;
+
     if (['pen', 'marker', 'highlighter', 'eraser'].includes(data.tool)) {
-      // Draw remote pen stroke
       ctx.beginPath();
       ctx.moveTo(data.startX, data.startY);
       ctx.lineTo(data.endX, data.endY);
-      ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color;
+      ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : drawColor.hex;
       ctx.lineWidth = data.lineWidth;
       if (data.tool === 'highlighter') {
         ctx.globalAlpha = 0.3;
@@ -553,7 +510,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
       if (!entry.data || !('path' in entry.data) || !entry.data.path) return;
       
       ctx.beginPath();
-      ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color;
+      ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color.hex;
       ctx.lineWidth = entry.data.lineWidth;
       
       if (entry.data.tool === 'highlighter') {
@@ -609,7 +566,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
       if ('path' in entry.data && entry.data.path && entry.data.path.length > 0) {
         // Draw pen stroke
         ctx.beginPath();
-        ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color;
+        ctx.strokeStyle = entry.data.tool === 'eraser' ? '#FFFFFF' : entry.data.color.hex;
         ctx.lineWidth = entry.data.lineWidth;
         
         if (entry.data.tool === 'highlighter') {
@@ -691,278 +648,45 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
 
   // Then your drawShape function
   const drawShape = (ctx: CanvasRenderingContext2D, data: DrawData) => {
-    // Only proceed if it's not a pen tool
-    if (['pen', 'marker', 'highlighter', 'eraser'].includes(data.tool)) {
-      return;
-    }
-
-    const width = Math.abs(data.endX - data.startX);
-    const height = Math.abs(data.endY - data.startY);
-    const startX = Math.min(data.startX, data.endX);
-    const startY = Math.min(data.startY, data.endY);
-    const centerX = (data.startX + data.endX) / 2;
-    const centerY = (data.startY + data.endY) / 2;
-
     ctx.beginPath();
-    ctx.strokeStyle = data.color;
+    ctx.strokeStyle = data.color.hex;
     ctx.lineWidth = data.lineWidth;
 
     switch (data.tool) {
       case 'rectangle':
-      case 'box':
-        ctx.rect(startX, startY, width, height);
+        ctx.rect(data.startX, data.startY, data.endX - data.startX, data.endY - data.startY);
         break;
-
       case 'circle':
-      case 'circleDot':
-        const radius = Math.sqrt(width * width + height * height) / 2;
-        ctx.arc(data.startX, data.startY, radius, 0, Math.PI * 2);
-        if (data.tool === 'circleDot') {
-          ctx.moveTo(data.startX + 2, data.startY);
-          ctx.arc(data.startX, data.startY, 2, 0, Math.PI * 2);
-        }
+        const centerX = (data.startX + data.endX) / 2;
+        const centerY = (data.startY + data.endY) / 2;
+        const radius = Math.sqrt(
+          Math.pow(data.endX - data.startX, 2) + 
+          Math.pow(data.endY - data.startY, 2)
+        ) / 2;
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         break;
-
       case 'triangle':
-      case 'pentagon':
         ctx.moveTo(data.startX, data.endY);
         ctx.lineTo(data.endX, data.endY);
         ctx.lineTo((data.startX + data.endX) / 2, data.startY);
         ctx.closePath();
         break;
-
-      case 'hexagon':
-        drawHexagon(ctx, data);
-        return; // drawHexagon handles its own stroke and fill
-
-      case 'octagon': {
-        const side = Math.min(width, height) / 2;
-        for (let i = 0; i < 8; i++) {
-          const angle = (i * Math.PI) / 4;
-          const x = centerX + side * Math.cos(angle);
-          const y = centerY + side * Math.sin(angle);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        break;
-      }
-
-      case 'star':
-        const spikes = 5;
-        const outerRadius = Math.min(width, height) / 2;
-        const innerRadius = outerRadius / 2;
-        
-        for (let i = 0; i < spikes * 2; i++) {
-          const radius = i % 2 === 0 ? outerRadius : innerRadius;
-          const angle = (i * Math.PI) / spikes - Math.PI / 2;
-          const x = centerX + Math.cos(angle) * radius;
-          const y = centerY + Math.sin(angle) * radius;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        break;
-
       case 'line':
         ctx.moveTo(data.startX, data.startY);
         ctx.lineTo(data.endX, data.endY);
         break;
-
-      case 'arrow':
-        ctx.moveTo(data.startX, data.startY);
-        ctx.lineTo(data.endX, data.endY);
-        const angle = Math.atan2(data.endY - data.startY, data.endX - data.startX);
-        const headLength = 20;
-        ctx.lineTo(data.endX - headLength * Math.cos(angle - Math.PI / 6), data.endY - headLength * Math.sin(angle - Math.PI / 6));
-        ctx.moveTo(data.endX, data.endY);
-        ctx.lineTo(data.endX - headLength * Math.cos(angle + Math.PI / 6), data.endY - headLength * Math.sin(angle + Math.PI / 6));
+      case 'star':
+        drawStar(ctx, data);
         break;
-
-      case 'diamond':
-      case 'parallelogram':
-        if (data.tool === 'parallelogram') {
-          const offset = width / 4;
-          ctx.moveTo(startX + offset, startY);
-          ctx.lineTo(startX + width + offset, startY);
-          ctx.lineTo(startX + width, startY + height);
-          ctx.lineTo(startX, startY + height);
-        } else {
-          ctx.moveTo(centerX, startY);
-          ctx.lineTo(startX + width, centerY);
-          ctx.lineTo(centerX, startY + height);
-          ctx.lineTo(startX, centerY);
-        }
-        ctx.closePath();
+      case 'hexagon':
+        drawHexagon(ctx, data);
         break;
-
-      case 'cross':
-        const crossSize = Math.min(width, height);
-        ctx.moveTo(centerX - crossSize/2, centerY);
-        ctx.lineTo(centerX + crossSize/2, centerY);
-        ctx.moveTo(centerX, centerY - crossSize/2);
-        ctx.lineTo(centerX, centerY + crossSize/2);
-        break;
-
-      case 'dot':
-        ctx.arc(data.startX, data.startY, lineWidth/2, 0, Math.PI * 2);
-        break;
-
-      default:
-        // Don't do anything for unknown tools
-        return;
     }
 
-    if (data.fillColor) {
-      ctx.fillStyle = data.fillColor;
-      ctx.fill();
-    }
     ctx.stroke();
   };
 
-  // Helper functions
-  const renderToolIcon = (tool: ToolOrSeparator) => {
-    if ('isSeparator' in tool) return null;
-    if (typeof tool.icon === 'function') {
-      return React.createElement(tool.icon, { size: 20 });
-    }
-    return React.createElement(tool.icon, { size: 20 });
-  };
-
-  const handleToolClick = (tool: BasicTool, isArrowClick = false) => {
-    if (tool.action) {
-      tool.action();
-      return;
-    }
-
-    if (tool.id === 'color') {
-      setShowColorPalette(!showColorPalette);
-      setShowPenMenu(false);
-      setShowShapesMenu(false);
-      setShowLineWidthMenu(false);
-    } else if (tool.id === 'lineWidth') {
-      setShowLineWidthMenu(!showLineWidthMenu);
-      setShowPenMenu(false);
-      setShowShapesMenu(false);
-      setShowColorPalette(false);
-    } else if (tool.isDropdown && isArrowClick) {
-      switch (tool.group) {
-        case 'pen':
-          setShowPenMenu(!showPenMenu);
-          setShowShapesMenu(false);
-          setShowColorPalette(false);
-          setShowLineWidthMenu(false);
-          break;
-        case 'shapes':
-          setShowShapesMenu(!showShapesMenu);
-          setShowPenMenu(false);
-          setShowColorPalette(false);
-          setShowLineWidthMenu(false);
-          break;
-      }
-    } else if (tool.isDropdown && tool.defaultTool) {
-      setSelectedTool(tool.defaultTool as ToolType);
-    } else {
-      setSelectedTool(tool.id as ToolType);
-    }
-  };
-
-  // Tool definitions
-  const basicTools: BasicTool[] = [
-    { id: 'select', icon: MousePointer, name: 'Select' },
-    { 
-      id: 'pen', 
-      icon: PenTool, 
-      name: 'Drawing Tools', 
-      isDropdown: true, 
-      group: 'pen', 
-      defaultTool: 'pen' 
-    },
-    { 
-      id: 'shapes', 
-      icon: Square, 
-      name: 'Shapes', 
-      isDropdown: true, 
-      group: 'shapes', 
-      defaultTool: 'rectangle' 
-    },
-    { id: 'eraser', icon: Eraser, name: 'Eraser' },
-    { id: 'text', icon: Type, name: 'Text' },
-    { id: 'fill', icon: PaintBucket, name: 'Fill' },
-    { id: 'move', icon: Move, name: 'Move' },
-    { id: 'image', icon: Image, name: 'Import Image' }
-  ];
-
-  const toolGroups: ToolOrSeparator[][] = [
-    [
-      basicTools[0],
-      {
-        id: 'pen',
-        icon: () => {
-          const CurrentIcon = selectedTool === 'pen' ? PenTool :
-                            selectedTool === 'marker' ? Edit3 :
-                            selectedTool === 'highlighter' ? Highlighter : PenTool;
-          return React.createElement(CurrentIcon, { size: 20 });
-        },
-        name: 'Drawing Tools',
-        isDropdown: true,
-        group: 'pen',
-        defaultTool: 'pen'
-      } as BasicTool,
-      {
-        id: 'shapes',
-        icon: () => {
-          const CurrentIcon = shapes.find(s => s.id === selectedTool)?.icon || Square;
-          return React.createElement(CurrentIcon, { size: 20 });
-        },
-        name: 'Shapes',
-        isDropdown: true,
-        group: 'shapes',
-        defaultTool: 'rectangle'
-      } as BasicTool,
-      basicTools[3], // eraser
-      { id: 'separator1', isSeparator: true },
-      // Color and Line Width tools
-      {
-        id: 'color',
-        icon: () => (
-        <div 
-          className="w-5 h-5 rounded-full border-2 border-gray-200"
-          style={{ backgroundColor: color }}
-        />
-        ),
-        name: 'Color',
-        group: 'color'
-      },
-      {
-        id: 'lineWidth',
-        icon: () => (
-        <div className="w-5 flex items-center">
-          <div 
-            className="w-full rounded-sm bg-gray-800" 
-            style={{ height: `${lineWidth}px` }}
-          />
-        </div>
-        ),
-        name: 'Line Width',
-        group: 'lineWidth'
-      },
-      { id: 'separator2', isSeparator: true },
-      basicTools[4], // text
-      basicTools[5], // fill
-      basicTools[6], // move
-      basicTools[7], // image
-      { id: 'separator3', isSeparator: true },
-    ],
-    // History tools group
-    [
-      { id: 'undo', icon: Undo2, name: 'Undo', action: undo, disabled: history.length === 0 },
-      { id: 'redo', icon: Redo2, name: 'Redo', action: redo, disabled: redoStack.length === 0 },
-      { id: 'clear', icon: Trash2, name: 'Clear Board', action: clearCanvas }
-    ]
-  ];
-
-  // Component render functions
+  // Add this helper component for the dropdown arrow
   const DropdownArrow = ({ isOpen }: { isOpen: boolean }) => (
     <div className="absolute bottom-0 right-0 p-0.5 bg-gray-100 rounded-full transform translate-x-1/4 translate-y-1/4">
       <ChevronDown 
@@ -972,51 +696,310 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     </div>
   );
 
-  const renderToolbarButton = (tool: ToolOrSeparator) => {
-    if ('isSeparator' in tool) {
-      return <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-gray-200 to-transparent my-2" />;
-    }
-    return (
-                    <button
-        onClick={() => handleToolClick(tool as BasicTool)}
-                      className={`p-2 rounded-lg transition-colors w-full flex items-center justify-center relative ${
-                        selectedTool === tool.id || 
-          ((tool as BasicTool).isDropdown && ['pen', 'marker', 'highlighter'].includes(selectedTool) && tool.id === 'pen') ||
-          ((tool as BasicTool).isDropdown && shapes.some(s => s.id === selectedTool) && tool.id === 'shapes')
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'hover:bg-gray-100 text-gray-700'
-                      }`}
-        title={(tool as BasicTool).name}
-      >
-        {renderToolIcon(tool)}
-        {(tool as BasicTool).isDropdown && (
-          <div onClick={(e) => {
-                            e.stopPropagation();
-            handleToolClick(tool as BasicTool, true);
-          }}>
-            <DropdownArrow isOpen={
-                              (tool.id === 'pen' && showPenMenu) ||
-                              (tool.id === 'shapes' && showShapesMenu)
-            } />
-                    </div>
-                      )}
-                </button>
-    );
+  // Update the tool groups
+  const toolGroups: (BasicTool | RegularTool)[][] = [
+    // Drawing tools group
+    [
+      basicTools[0], // select
+      {
+        id: 'pen',
+        icon: () => {
+          const CurrentIcon = selectedTool === 'pen' ? PenTool :
+                            selectedTool === 'marker' ? Edit3 :
+                            selectedTool === 'highlighter' ? Highlighter : PenTool;
+          return <CurrentIcon size={20} />;
+        },
+        name: 'Drawing Tools',
+        isDropdown: true,
+        group: 'pen',
+        defaultTool: 'pen'
+      } as RegularTool,
+      {
+        id: 'shapes',
+        icon: () => {
+          const CurrentIcon = shapes.find(s => s.id === selectedTool)?.icon || Square;
+          return <CurrentIcon size={20} />;
+        },
+        name: 'Shapes',
+        isDropdown: true,
+        group: 'shapes',
+        defaultTool: 'rectangle'
+      } as RegularTool,
+      basicTools[3], // eraser
+      { id: 'separator1', isSeparator: true } as SeparatorTool,
+      {
+        id: 'color',
+        icon: () => (
+          <div 
+            className="w-5 h-5 rounded-full border-2 border-gray-200"
+            style={{ backgroundColor: color.hex }}
+          />
+        ),
+        name: 'Colors',
+        group: 'color'
+      } as RegularTool,
+      {
+        id: 'customColor',
+        icon: () => (
+          <div className="w-5 h-5 rounded-full border-2 border-gray-200 bg-gradient-to-br from-red-500 via-green-500 to-blue-500" />
+        ),
+        name: 'Custom Color',
+        group: 'customColor'
+      } as RegularTool,
+      {
+        id: 'colorPicker',
+        icon: Pipette,
+        name: 'Pick Color',
+        group: 'colorPicker'
+      } as RegularTool,
+      {
+        id: 'lineWidth',
+        icon: () => (
+          <div className="w-5 flex items-center">
+            <div 
+              className="w-full rounded-sm bg-gray-800" 
+              style={{ height: `${lineWidth}px` }}
+            />
+          </div>
+        ),
+        name: 'Line Width',
+        group: 'lineWidth'
+      } as RegularTool,
+      { id: 'separator2', isSeparator: true } as SeparatorTool,
+      basicTools[4], // text
+      basicTools[5], // fill
+      basicTools[6], // move
+      basicTools[7],  // image
+    ],
+    // History tools group
+    [
+      { id: 'undo', icon: Undo2, name: 'Undo', action: undo, disabled: history.length === 0 } as RegularTool,
+      { id: 'redo', icon: Redo2, name: 'Redo', action: redo, disabled: redoStack.length === 0 } as RegularTool,
+      { id: 'clear', icon: Trash2, name: 'Clear Board', action: clearCanvas } as RegularTool
+    ]
+  ];
+
+  // Add this type guard function
+  const isBasicTool = (tool: any): tool is BasicTool => {
+    return 'id' in tool && 'name' in tool;
   };
 
+  const handleToolClick = (tool: any, isArrowClick = false) => {
+    if (tool.action) {
+      tool.action();
+      return;
+    }
+
+    if (tool.id === 'color') {
+      setShowColorPalette(!showColorPalette);
+      setShowCustomPicker(false);
+    } else if (tool.id === 'customColor') {
+      setShowCustomPicker(!showCustomPicker);
+      setShowColorPalette(false);
+    } else if (tool.id === 'lineWidth') {
+      setShowLineWidthMenu(!showLineWidthMenu);
+      setShowPenMenu(false);
+      setShowShapesMenu(false);
+      setShowColorPalette(false);
+    } else if (tool.isDropdown && tool.group === 'pen') {
+      setShowPenMenu(!showPenMenu);
+      setShowShapesMenu(false);
+      setShowColorPalette(false);
+      setShowLineWidthMenu(false);
+    } else if (tool.isDropdown && tool.group === 'shapes') {
+      setShowShapesMenu(!showShapesMenu);
+      setShowPenMenu(false);
+      setShowColorPalette(false);
+      setShowLineWidthMenu(false);
+    } else if (tool.id === 'colorPicker') {
+      setSelectedTool('colorPicker');
+    } else {
+      setSelectedTool(tool.id as ToolType);
+    }
+  };
+
+  // Update the renderToolbar function
   const renderToolbar = () => (
     <div className="flex flex-col gap-1.5">
       {toolGroups.map((group, groupIndex) => (
         <React.Fragment key={groupIndex}>
+          {groupIndex > 0 && <div className="w-full h-[1px] bg-gray-200 my-1" />}
           <div className="flex flex-col gap-1">
             {group.map(tool => (
               <React.Fragment key={tool.id}>
-                {renderToolbarButton(tool)}
+                {isRegularTool(tool) ? (
+                  <div className="relative">
+                    <button
+                      onClick={() => handleToolClick(tool)}
+                      className={`p-2 rounded-lg transition-colors w-full flex items-center justify-center relative ${
+                        selectedTool === tool.id || 
+                        (tool.isDropdown && ['pen', 'marker', 'highlighter'].includes(selectedTool) && tool.id === 'pen') ||
+                        (tool.isDropdown && shapes.some(s => s.id === selectedTool) && tool.id === 'shapes')
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'hover:bg-gray-100 text-gray-700'
+                      }`}
+                      title={tool.name}
+                    >
+                      {React.createElement(tool.icon, { size: 20 })}
+                      {tool.isDropdown && (
+                        <DropdownArrow 
+                          isOpen={
+                            (tool.id === 'pen' && showPenMenu) ||
+                            (tool.id === 'shapes' && showShapesMenu)
+                          }
+                        />
+                      )}
+                    </button>
+
+                    {/* Add dropdowns here */}
+                    {tool.id === 'pen' && showPenMenu && (
+                      <div className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-lg p-2 min-w-[150px] z-50">
+                        {penTools.map(penTool => (
+                          <button
+                            key={penTool.id}
+                            onClick={() => {
+                              setSelectedTool(penTool.id);
+                              setLineWidth(penTool.width);
+                              setShowPenMenu(false);
+                            }}
+                            className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md w-full"
+                          >
+                            <penTool.icon size={16} />
+                            <span className="text-sm">{penTool.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {tool.id === 'shapes' && showShapesMenu && (
+                      <div className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-lg p-4 w-[280px] z-50">
+                        <div className="grid grid-cols-5 gap-3">
+                          {shapes.map(shape => (
+                            <button
+                              key={shape.id}
+                              onClick={() => {
+                                setSelectedTool(shape.id);
+                                setShowShapesMenu(false);
+                              }}
+                              className={`p-2 hover:bg-gray-50 rounded-md transition-colors flex items-center justify-center ${
+                                selectedTool === shape.id ? 'bg-blue-50 ring-1 ring-blue-500' : ''
+                              }`}
+                              title={shape.id}
+                            >
+                              <shape.icon size={18} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {tool.id === 'color' && showColorPalette && (
+                      <div className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-lg p-4 w-[280px] z-50">
+                        {Object.entries(colorPalettes).map(([paletteName, colors]) => (
+                          <div key={paletteName} className="mb-4">
+                            <div className="text-sm font-medium text-gray-700 capitalize mb-2">
+                              {paletteName}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {colors.map(colorHex => (
+                                <button
+                                  key={colorHex}
+                                  onClick={() => {
+                                    setColor({
+                                      hex: colorHex,
+                                      rgb: { r: 0, g: 0, b: 0, a: 1 },
+                                      hsv: { h: 0, s: 0, v: 0, a: 1 }
+                                    });
+                                    setShowColorPalette(false);
+                                  }}
+                                  className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${
+                                    color.hex === colorHex 
+                                      ? 'ring-2 ring-offset-2 ring-blue-500' 
+                                      : 'hover:ring-2 hover:ring-offset-2 hover:ring-gray-300'
+                                  }`}
+                                  style={{ backgroundColor: colorHex }}
+                                  title={colorHex}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {tool.id === 'customColor' && showCustomPicker && (
+                      <div className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-lg p-4 z-50">
+                        <ColorPicker
+                          color={color}
+                          onChange={setColor}
+                        />
+                      </div>
+                    )}
+
+                    {tool.id === 'lineWidth' && showLineWidthMenu && (
+                      <div className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-lg p-4 min-w-[200px] z-50">
+                        <div className="mb-4 px-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700">Custom Width</span>
+                            <span className="text-sm text-gray-500">{lineWidth}px</span>
+                          </div>
+                          <div className="relative h-4 flex items-center">
+                            <input
+                              type="range"
+                              min="1"
+                              max="20"
+                              value={lineWidth}
+                              onChange={(e) => setLineWidth(parseInt(e.target.value))}
+                              className="absolute w-full h-4 cursor-pointer appearance-none bg-transparent z-10
+                                [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-gray-200 [&::-webkit-slider-runnable-track]:rounded-full
+                                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 
+                                [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white 
+                                [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-gray-500 
+                                [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:mt-[-6px]
+                                [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:transition-transform"
+                            />
+                            <div className="absolute w-full h-1 bg-gray-100 rounded-full overflow-hidden pointer-events-none">
+                              <div 
+                                className="absolute h-full bg-gradient-to-r from-gray-400 to-gray-500 rounded-full pointer-events-none transition-all duration-150"
+                                style={{ width: `${(lineWidth / 20) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {lineWidthPresets.map(preset => (
+                            <button
+                              key={preset.size}
+                              onClick={() => {
+                                setLineWidth(preset.size);
+                                setShowLineWidthMenu(false);
+                              }}
+                              className={`w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-md ${
+                                lineWidth === preset.size ? 'bg-blue-50' : ''
+                              }`}
+                            >
+                              <div className="w-12 flex items-center">
+                                <div 
+                                  className="w-full rounded-full bg-gray-800" 
+                                  style={{ height: `${preset.size}px` }}
+                                />
+                              </div>
+                              <span className="text-sm">{preset.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full h-[1px] bg-gray-200 my-1" />
+                )}
               </React.Fragment>
             ))}
           </div>
-          </React.Fragment>
-        ))}
+        </React.Fragment>
+      ))}
     </div>
   );
 
@@ -1050,40 +1033,29 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     const currentY = e.clientY - rect.top;
 
     if (['pen', 'marker', 'highlighter', 'eraser'].includes(selectedTool)) {
+      // Draw pen strokes
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx) {
-        const minDistance = 2;
-        const dx = currentX - lastX.current;
-        const dy = currentY - lastY.current;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance >= minDistance) {
-          // Draw locally
-          ctx.beginPath();
-          ctx.moveTo(lastX.current, lastY.current);
-          ctx.lineTo(currentX, currentY);
-          ctx.strokeStyle = selectedTool === 'eraser' ? '#FFFFFF' : color;
-          ctx.lineWidth = lineWidth;
-          if (selectedTool === 'highlighter') {
-            ctx.globalAlpha = 0.3;
-          }
-          ctx.stroke();
-          ctx.globalAlpha = 1.0;
-
-          // Only collect points for the final stroke
-          setCurrentPath(prev => [...prev, { x: currentX, y: currentY }]);
-
-          lastX.current = currentX;
-          lastY.current = currentY;
+        ctx.beginPath();
+        ctx.moveTo(lastX.current, lastY.current);
+        ctx.lineTo(currentX, currentY);
+        ctx.strokeStyle = selectedTool === 'eraser' ? '#FFFFFF' : color.hex;
+        ctx.lineWidth = lineWidth;
+        if (selectedTool === 'highlighter') {
+          ctx.globalAlpha = 0.3;
         }
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+
+        // Update current path
+        setCurrentPath(prev => [...prev, { x: currentX, y: currentY }]);
       }
     } else {
-      // Handle shapes preview
+      // Handle shape preview
       const previewCtx = previewCanvasRef.current?.getContext('2d');
       if (previewCtx && previewCanvasRef.current) {
         previewCtx.clearRect(0, 0, previewCanvasRef.current.width, previewCanvasRef.current.height);
-        
-        const drawData: DrawData = {
+        const data: DrawData = {
           roomId,
           startX: shapeStartX.current,
           startY: shapeStartY.current,
@@ -1091,73 +1063,57 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
           endY: currentY,
           color,
           lineWidth,
-          tool: selectedTool,
-          fillColor: fillColor !== '#ffffff' ? fillColor : undefined
+          tool: selectedTool
         };
-        
-        drawShape(previewCtx, drawData);
+        drawShape(previewCtx, data);
       }
     }
+
+    lastX.current = currentX;
+    lastY.current = currentY;
   };
 
-  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseUp = () => {
     if (!isDrawing) return;
-    
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    setIsDrawing(false);
 
-    const endX = e.clientX - rect.left;
-    const endY = e.clientY - rect.top;
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
 
     if (['pen', 'marker', 'highlighter', 'eraser'].includes(selectedTool)) {
-      // Ensure we have at least two points in the path
+      // Handle pen strokes
       if (currentPath.length >= 2) {
-        const strokeData: StrokeData = {
+        const data: DrawData = {
           roomId,
           startX: currentPath[0].x,
           startY: currentPath[0].y,
           endX: currentPath[currentPath.length - 1].x,
           endY: currentPath[currentPath.length - 1].y,
-          color: selectedTool === 'eraser' ? '#FFFFFF' : color,
+          color: selectedTool === 'eraser' ? stringToColor('#FFFFFF') : color,
           lineWidth,
           tool: selectedTool,
           path: currentPath
         };
-
-        addToHistory({ type: 'draw', data: strokeData });
-        socket.emit('draw', strokeData);
+        socket.emit('draw', data);
+        addToHistory({ type: 'draw', data });
       }
+      setCurrentPath([]);
     } else {
-      // Only add shape to history if start and end points are different
-      const dx = endX - shapeStartX.current;
-      const dy = endY - shapeStartY.current;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance >= 3) {
-        const drawData: DrawData = {
-          roomId,
-          startX: shapeStartX.current,
-          startY: shapeStartY.current,
-          endX,
-          endY,
-          color,
-          lineWidth,
-          tool: selectedTool,
-          fillColor: fillColor !== '#ffffff' ? fillColor : undefined
-        };
-
-        const ctx = canvasRef.current?.getContext('2d');
-        if (ctx) {
-          drawShape(ctx, drawData);
-        }
-
-        addToHistory({ type: 'draw', data: drawData });
-        socket.emit('draw', drawData);
-      }
+      // Draw final shape on main canvas
+      const data: DrawData = {
+        roomId,
+        startX: shapeStartX.current,
+        startY: shapeStartY.current,
+        endX: lastX.current,
+        endY: lastY.current,
+        color,
+        lineWidth,
+        tool: selectedTool
+      };
+      drawShape(ctx, data);
+      socket.emit('draw', data);
+      addToHistory({ type: 'draw', data });
     }
-
-    setIsDrawing(false);
-    setCurrentPath([]);
 
     // Clear preview canvas
     const previewCtx = previewCanvasRef.current?.getContext('2d');
@@ -1348,6 +1304,54 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     reader.readAsText(file);
   };
 
+  // Add this function near the top of your component
+  const getDropdownPosition = (tool: RegularTool) => {
+    switch (tool.id) {
+      case 'pen':
+      case 'shapes':
+      case 'color':
+      case 'lineWidth':
+        return 'absolute left-full top-0 ml-2';
+      default:
+        return 'absolute left-full top-0 ml-2';
+    }
+  };
+
+  // Helper function to convert string to IColor
+  const stringToColor = (colorStr: string): IColor => ({
+    hex: colorStr,
+    rgb: { r: 0, g: 0, b: 0, a: 1 },
+    hsv: { h: 0, s: 0, v: 0, a: 1 }
+  });
+
+  // Add this function to handle color picking
+  const handleColorPick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (selectedTool !== 'colorPicker') return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx || !canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const pixel = ctx.getImageData(x, y, 1, 1).data;
+    const hex = `#${[pixel[0], pixel[1], pixel[2]].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+    
+    setColor({
+      hex,
+      rgb: { r: pixel[0], g: pixel[1], b: pixel[2], a: 1 },
+      hsv: { h: 0, s: 0, v: 0, a: 1 } // You might want to add proper HSV conversion
+    });
+
+    // Switch back to previous tool
+    setSelectedTool(previousTool.current);
+  };
+
+  // Add state to track previous tool
+  const previousTool = useRef<ToolType>('pen');
+
   return (
     <div className="relative h-screen w-screen bg-gray-50 overflow-hidden" ref={containerRef}>
       {/* Toolbar */}
@@ -1498,6 +1502,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseOut={handleMouseUp}
+        onClick={handleColorPick}
       />
       <canvas
         ref={previewCanvasRef}
@@ -1523,9 +1528,9 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">User:</span>
             <span className="text-sm font-medium">{username}</span>
+          </div>
         </div>
       </div>
-        </div>
 
       {/* Action Buttons */}
       <div className="fixed bottom-4 right-4 flex flex-col gap-2">
