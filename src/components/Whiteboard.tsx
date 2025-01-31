@@ -977,30 +977,30 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
       return <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-gray-200 to-transparent my-2" />;
     }
     return (
-      <button
+                    <button
         onClick={() => handleToolClick(tool as BasicTool)}
-        className={`p-2 rounded-lg transition-colors w-full flex items-center justify-center relative ${
-          selectedTool === tool.id || 
+                      className={`p-2 rounded-lg transition-colors w-full flex items-center justify-center relative ${
+                        selectedTool === tool.id || 
           ((tool as BasicTool).isDropdown && ['pen', 'marker', 'highlighter'].includes(selectedTool) && tool.id === 'pen') ||
           ((tool as BasicTool).isDropdown && shapes.some(s => s.id === selectedTool) && tool.id === 'shapes')
-            ? 'bg-blue-50 text-blue-600'
-            : 'hover:bg-gray-100 text-gray-700'
-        }`}
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'hover:bg-gray-100 text-gray-700'
+                      }`}
         title={(tool as BasicTool).name}
       >
         {renderToolIcon(tool)}
         {(tool as BasicTool).isDropdown && (
           <div onClick={(e) => {
-            e.stopPropagation();
+                            e.stopPropagation();
             handleToolClick(tool as BasicTool, true);
           }}>
             <DropdownArrow isOpen={
-              (tool.id === 'pen' && showPenMenu) ||
-              (tool.id === 'shapes' && showShapesMenu)
+                              (tool.id === 'pen' && showPenMenu) ||
+                              (tool.id === 'shapes' && showShapesMenu)
             } />
-          </div>
-        )}
-      </button>
+                    </div>
+                      )}
+                </button>
     );
   };
 
@@ -1015,8 +1015,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
               </React.Fragment>
             ))}
           </div>
-        </React.Fragment>
-      ))}
+          </React.Fragment>
+        ))}
     </div>
   );
 
