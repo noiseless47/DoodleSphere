@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import SlideCarousel from "./SlideCarousel"; // Import the new carousel component
+import SocialButtons from './SocialButtons';
 
 interface LoginProps {
   onJoin: (username: string, roomId: string) => void;
+  initialRoomId?: string;
 }
 
-const Login: React.FC<LoginProps> = ({ onJoin }) => {
+const Login: React.FC<LoginProps> = ({ onJoin, initialRoomId = '' }) => {
   const [username, setUsername] = useState("");
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(initialRoomId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,16 +26,16 @@ const Login: React.FC<LoginProps> = ({ onJoin }) => {
   return (
     <div className="min-h-screen flex">
       {/* Left: Login Form */}
-      <div className="w-1/3 flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full space-y-8 bg-white rounded-xl shadow-lg p-8">
+      <div className="w-1/3 flex flex-col items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-8 bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-gray-900">Join DoodleSphere</h2>
-            <p className="mt-2 text-gray-600">Enter your details to get started</p>
+            <p className="mt-2 text-gray-500">Enter your details to get started</p>
           </div>
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Username
                 </label>
                 <input
@@ -42,28 +44,35 @@ const Login: React.FC<LoginProps> = ({ onJoin }) => {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-3 text-gray-700 bg-gray-50 border border-gray-200 rounded-xl 
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all
+                    placeholder:text-gray-400"
                   placeholder="Enter your username"
                 />
               </div>
               <div>
-                <label htmlFor="room" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="room" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Room ID
                 </label>
-                <div className="mt-1 flex rounded-md shadow-sm">
+                <div className="relative">
                   <input
                     id="room"
                     type="text"
                     required
                     value={roomId}
                     onChange={(e) => setRoomId(e.target.value)}
-                    className="flex-1 block w-full px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-4 py-3 text-gray-700 bg-gray-50 border border-gray-200 
+                      rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white 
+                      transition-all placeholder:text-gray-400 pr-24"
                     placeholder="Enter room ID"
                   />
                   <button
                     type="button"
                     onClick={generateRoom}
-                    className="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5
+                      text-sm font-medium text-gray-700 bg-gray-100 rounded-lg
+                      hover:bg-gray-200 hover:text-gray-900 transition-colors
+                      focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     Generate
                   </button>
@@ -72,11 +81,28 @@ const Login: React.FC<LoginProps> = ({ onJoin }) => {
             </div>
             <button
               type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full py-3 px-4 bg-blue-600 text-white rounded-xl font-medium
+                hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 
+                focus:ring-offset-2 transition-colors"
             >
               Join Room
             </button>
           </form>
+        </div>
+        {/* Attribution and Social Links */}
+        <div className="mt-6 text-center">
+          <div className="text-sm text-gray-400 mb-4">
+            Crafted with ♥️ by{' '}
+            <a 
+              href="https://linkedin.com/in/asishkumaryeleti/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-gray-600 transition-colors"
+            >
+              noiseless47
+            </a>
+          </div>
+          <SocialButtons />
         </div>
       </div>
 

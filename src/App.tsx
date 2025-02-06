@@ -16,6 +16,13 @@ const App: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(true);
 
   useEffect(() => {
+    // Get room ID from URL if present
+    const pathSegments = window.location.pathname.split('/');
+    const urlRoomId = pathSegments[1];
+    if (urlRoomId) {
+      setRoomId(urlRoomId);
+    }
+
     const connectToServer = async () => {
       try {
         console.log('Attempting to connect to backend...');
@@ -75,6 +82,8 @@ const App: React.FC = () => {
     setUsername(username);
     setRoomId(roomId);
     setIsLoggedIn(true);
+    // Update URL without reloading
+    window.history.pushState({}, '', `/${roomId}`);
   };
 
   if (isConnecting || !socket) {
@@ -104,7 +113,7 @@ const App: React.FC = () => {
   }
 
   if (!isLoggedIn) {
-    return <Login onJoin={handleJoin} />;
+    return <Login onJoin={handleJoin} initialRoomId={roomId} />;
   }
 
   return (

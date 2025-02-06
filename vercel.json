@@ -1,45 +1,9 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "npm run build",
-        "outputDirectory": "dist"
-      }
-    }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "routes": [
-    {
-      "src": "^/assets/.*",
-      "headers": {
-        "cache-control": "public, max-age=31536000, immutable",
-        "content-type": "application/javascript; charset=utf-8"
-      }
-    },
-    {
-      "src": "^/index-.+\\.js$",
-      "headers": {
-        "content-type": "application/javascript; charset=utf-8"
-      }
-    },
-    {
-      "src": "^/index.js$",
-      "headers": {
-        "content-type": "application/javascript; charset=utf-8"
-      }
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
-  "env": {
-    "VITE_API_URL": "https://doodlesphere.onrender.com"
-  }
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite"
 }
   

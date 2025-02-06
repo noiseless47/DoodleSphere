@@ -5,7 +5,7 @@ import {
   ChevronDown, Undo2, Redo2, Trash2, MousePointer,
   Triangle, Star, Hexagon, PenTool, Highlighter, Edit3,
   Move, PaintBucket, Download, Image, ArrowRight, Minus,
-  Heart, Zap, Moon, Sun, Plus, Hash, CircleDot, Box, Copy, CheckCircle2, Settings, Pipette
+  Heart, Zap, Moon, Sun, Plus, Hash, CircleDot, Box, Copy, CheckCircle2, Settings, Pipette, Share2, Link, Twitter, Facebook, Mail
 } from 'lucide-react';
 import Chat from './Chat';
 import type { Tool, DrawData } from '../types/whiteboard';
@@ -15,6 +15,7 @@ import { isRegularTool, BasicTool, RegularTool, SeparatorTool } from '../types/t
 import { basicTools, penTools, shapes, lineWidthPresets } from '../constants/tools';
 import { ColorPicker, IColor } from "react-color-palette";
 import "react-color-palette/dist/css/rcp.css";
+import SocialButtons from './SocialButtons';
 
 interface WhiteboardProps {
   socket: Socket;
@@ -99,6 +100,8 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [showCopyToast, setShowCopyToast] = useState(false);
   const [showCustomPicker, setShowCustomPicker] = useState(false);
+  const [textInputPosition, setTextInputPosition] = useState({ x: 0, y: 0 });
+  const [showShareMenu, setShowShareMenu] = useState(false);
   
   const lastX = useRef<number>(0);
   const lastY = useRef<number>(0);
@@ -681,6 +684,13 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
       case 'hexagon':
         drawHexagon(ctx, data);
         break;
+      case 'text':
+        if (data.text) {
+          ctx.font = `${data.lineWidth}px sans-serif`;
+          ctx.fillStyle = data.color.hex;
+          ctx.fillText(data.text, data.startX, data.startY);
+        }
+        break;
     }
 
     ctx.stroke();
@@ -905,10 +915,19 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
                                 <button
                                   key={colorHex}
                                   onClick={() => {
+                                    // Convert hex to RGB
+                                    const r = parseInt(colorHex.slice(1, 3), 16);
+                                    const g = parseInt(colorHex.slice(3, 5), 16);
+                                    const b = parseInt(colorHex.slice(5, 7), 16);
+                                    
+                                    // Convert RGB to HSV
+                                    const hsv = rgbToHsv(r, g, b);
+                                    
+                                    // Update color state with full color object
                                     setColor({
                                       hex: colorHex,
-                                      rgb: { r: 0, g: 0, b: 0, a: 1 },
-                                      hsv: { h: 0, s: 0, v: 0, a: 1 }
+                                      rgb: { r, g, b, a: 1 },
+                                      hsv: hsv
                                     });
                                     setShowColorPalette(false);
                                   }}
@@ -1005,6 +1024,17 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
 
   // Add these mouse event handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (selectedTool === 'text') {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setTextInputPosition({ x, y });
+      setShowTextInput(true);
+      return;
+    }
+
     setIsDrawing(true);
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1324,7 +1354,7 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     hsv: { h: 0, s: 0, v: 0, a: 1 }
   });
 
-  // Add this function to handle color picking
+  // Update the handleColorPick function
   const handleColorPick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (selectedTool !== 'colorPicker') return;
 
@@ -1339,10 +1369,13 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
     const pixel = ctx.getImageData(x, y, 1, 1).data;
     const hex = `#${[pixel[0], pixel[1], pixel[2]].map(x => x.toString(16).padStart(2, '0')).join('')}`;
     
+    // Convert RGB to HSV
+    const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
+    
     setColor({
       hex,
       rgb: { r: pixel[0], g: pixel[1], b: pixel[2], a: 1 },
-      hsv: { h: 0, s: 0, v: 0, a: 1 } // You might want to add proper HSV conversion
+      hsv: hsv
     });
 
     // Switch back to previous tool
@@ -1352,6 +1385,65 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
   // Add state to track previous tool
   const previousTool = useRef<ToolType>('pen');
 
+  // Add this helper function at the top level of your component
+  const rgbToHsv = (r: number, g: number, b: number): { h: number; s: number; v: number; a: number } => {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const diff = max - min;
+
+    let h = 0;
+    if (diff === 0) {
+      h = 0;
+    } else if (max === r) {
+      h = ((g - b) / diff) % 6;
+    } else if (max === g) {
+      h = (b - r) / diff + 2;
+    } else {
+      h = (r - g) / diff + 4;
+    }
+
+    h = Math.round(h * 60);
+    if (h < 0) h += 360;
+
+    const s = max === 0 ? 0 : Math.round((diff / max) * 100);
+    const v = Math.round(max * 100);
+
+    return { h, s, v, a: 1 };
+  };
+
+  // Update the handleShare function
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareText = `Join my DoodleSphere room: ${roomId}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join DoodleSphere',
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.error('Error sharing:', err);
+          // Fallback to clipboard copy if sharing fails
+          await navigator.clipboard.writeText(shareUrl);
+          setShowCopyToast(true);
+          setTimeout(() => setShowCopyToast(false), 2000);
+        }
+      }
+    } else {
+      // Fallback for browsers that don't support sharing
+      await navigator.clipboard.writeText(shareUrl);
+      setShowCopyToast(true);
+      setTimeout(() => setShowCopyToast(false), 2000);
+    }
+  };
+
   return (
     <div className="relative h-screen w-screen bg-gray-50 overflow-hidden" ref={containerRef}>
       {/* Toolbar */}
@@ -1359,19 +1451,27 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
         {renderToolbar()}
       </div>
 
-      {/* Settings Button and Menu */}
-      <div className="fixed top-4 right-4 z-30">
+      {/* Settings and Download Buttons */}
+      <div className="fixed top-4 right-4 z-30 flex flex-col gap-2">
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+          className="p-3 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
           title="Settings"
         >
           <Settings size={20} className="text-gray-700" />
         </button>
 
+        <button
+          onClick={downloadWhiteboard}
+          className="p-3 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors"
+          title="Download Whiteboard"
+        >
+          <Download size={20} />
+        </button>
+
         {showSettings && (
           <>
-            {/* Overlay */}
+            {/* Settings overlay and menu content */}
             <div 
               className="fixed inset-0 bg-black/20 z-20" 
               style={{ zIndex: -1 }}
@@ -1467,6 +1567,21 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
                   </div>
                 </div>
 
+                {/* Share Settings */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Share</h4>
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleShare}
+                      className="w-full px-3 py-2 text-sm font-medium bg-blue-50 hover:bg-blue-100 
+                        text-blue-600 hover:text-blue-700 rounded-md transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Share2 size={16} />
+                      Share Room
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-4 border-t border-gray-100">
                   <button
                     onClick={() => setShowResetModal(true)}
@@ -1476,21 +1591,26 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
                     Reset Settings
                   </button>
                 </div>
+
+                {/* Attribution */}
+                <div className="pt-4 mt-4 border-t border-gray-100 text-center">
+                  <div className="text-xs text-gray-400 mb-3">
+                    Crafted with ♥️ by{' '}
+                    <a 
+                      href="https://linkedin.com/in/asishkumaryeleti/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="hover:text-gray-600 transition-colors"
+                    >
+                      noiseless47
+                    </a>
+                  </div>
+                  <SocialButtons />
+                </div>
               </div>
             </div>
           </>
         )}
-      </div>
-
-      {/* Move download button to bottom left */}
-      <div className="fixed bottom-4 left-4 z-20">
-        <button
-          onClick={downloadWhiteboard}
-          className="p-3 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors"
-          title="Download Whiteboard"
-        >
-          <Download size={24} />
-        </button>
       </div>
 
       {/* Canvas */}
@@ -1583,6 +1703,64 @@ const Whiteboard: React.FC<WhiteboardProps> = ({ socket, roomId, username }) => 
         confirmText="Reset"
         cancelText="Cancel"
       />
+
+      {showTextInput && (
+        <div 
+          style={{
+            position: 'absolute',
+            left: textInputPosition.x,
+            top: textInputPosition.y,
+            zIndex: 50
+          }}
+        >
+          <input
+            type="text"
+            autoFocus
+            value={textValue}
+            onChange={(e) => setTextValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const ctx = canvasRef.current?.getContext('2d');
+                if (!ctx) return;
+
+                ctx.font = `${lineWidth * 8}px sans-serif`;
+                ctx.fillStyle = color.hex;
+                ctx.fillText(textValue, textInputPosition.x, textInputPosition.y);
+
+                // Create draw data
+                const drawData: DrawData = {
+                  roomId,
+                  startX: textInputPosition.x,
+                  startY: textInputPosition.y,
+                  endX: textInputPosition.x + ctx.measureText(textValue).width,
+                  endY: textInputPosition.y,
+                  color,
+                  lineWidth: lineWidth * 8,
+                  tool: 'text',
+                  text: textValue
+                };
+
+                // Emit to other users
+                socket.emit('draw', drawData);
+                addToHistory({ type: 'draw', data: drawData });
+
+                // Reset text input
+                setTextValue('');
+                setShowTextInput(false);
+              } else if (e.key === 'Escape') {
+                setTextValue('');
+                setShowTextInput(false);
+              }
+            }}
+            className="bg-transparent border-none outline-none min-w-[200px]"
+            style={{
+              fontSize: `${lineWidth * 8}px`,
+              color: color.hex,
+              caretColor: color.hex
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
